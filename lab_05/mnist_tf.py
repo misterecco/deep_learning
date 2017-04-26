@@ -41,14 +41,26 @@ to solve this dataset with Convolutional Neural Network.
 '''
 class MnistTrainer(object):
     def train_on_batch(self, batch_xs, batch_ys):
-        raise NotImplementedError()
-        ### WRITE YOUR CODE HERE ###
+        self.train_step.run(feed_dict={self.x: batch_xs, self.y_target: batch_ys})
+
+        correct_prediction = tf.equal(tf.arg_max(self.y_target, 1), tf.arg_max(self.y, 1))
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+        return self.cross_entropy.eval(), accuracy.eval()
 
 
     def create_model(self):
         self.x = tf.placeholder(tf.float32, [None, 784], name='x')
         self.y_target = tf.placeholder(tf.float32, [None, 10])
-        ### WRITE YOUR CODE HERE ###
+
+        W = tf.Variable(tf.zeros([784, 10]))
+        b = tf.Variable(tf.zeros([10]))
+
+        self.y = tf.matmul(self.x, W) + b
+        # TODO: implement cross_entropy manually
+        self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_target, logits=self.y))
+
+        self.train_step = tf.train.GradientDescentOptimizer(0.5).minimize(self.cross_entropy)
 
 
 
@@ -70,6 +82,8 @@ class MnistTrainer(object):
                     batch_xs, batch_ys = mnist.train.next_batch(mb_size)
 
                     loss, accuracy = self.train_on_batch(batch_xs, batch_ys)
+
+                    print(loss, accuracy)
 
 
                     losses.append(loss)
