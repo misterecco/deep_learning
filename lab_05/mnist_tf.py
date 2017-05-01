@@ -39,28 +39,42 @@ Extra task:
 * Try running your model on CIFAR-10 dataset. See what results you can get. In the future we will try
 to solve this dataset with Convolutional Neural Network.
 '''
-class MnistTrainer(object):
+class MnistTrainer():
+    @staticmethod
+    def softmax(y):
+        y_exp = tf.exp(y)
+        return y_exp / tf.reduce_sum(y_exp)
+
     def train_on_batch(self, batch_xs, batch_ys):
-        self.train_step.run(feed_dict={self.x: batch_xs, self.y_target: batch_ys})
+        feed_dict = {
+            self.x: batch_xs,
+            self.y_target: batch_ys
+        }
 
-        correct_prediction = tf.equal(tf.arg_max(self.y_target, 1), tf.arg_max(self.y, 1))
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        self.sess.run(self.train_step, feed_dict=feed_dict)
 
-        return self.cross_entropy.eval(), accuracy.eval()
+        return self.sess.run([self.loss, self.accuracy], feed_dict=feed_dict)
 
 
     def create_model(self):
-        self.x = tf.placeholder(tf.float32, [None, 784], name='x')
-        self.y_target = tf.placeholder(tf.float32, [None, 10])
+        self.x = tf.placeholder(tf.float32, shape=[None, 784], name='x')
+        self.y_target = tf.placeholder(tf.float32, shape=[None, 10])
 
         W = tf.Variable(tf.zeros([784, 10]))
         b = tf.Variable(tf.zeros([10]))
 
-        self.y = tf.matmul(self.x, W) + b
-        # TODO: implement cross_entropy manually
-        self.cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_target, logits=self.y))
+        y = tf.matmul(self.x, W) + b
 
-        self.train_step = tf.train.GradientDescentOptimizer(0.5).minimize(self.cross_entropy)
+        # self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_target, logits=self.y))
+
+        m_log = (-1.0) * tf.log(self.softmax(y))
+
+        self.loss = tf.reduce_sum(tf.multiply(m_log, self.y_target))
+
+        self.train_step = tf.train.GradientDescentOptimizer(0.001).minimize(self.loss)
+
+        correct_prediction = tf.equal(tf.arg_max(self.y_target, 1), tf.arg_max(y, 1))
+        self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 
 
@@ -73,7 +87,7 @@ class MnistTrainer(object):
 
         with tf.Session() as self.sess:
             tf.global_variables_initializer().run()  # initialize variables
-            batches_n = 100000
+            batches_n = 10000
             mb_size = 128
 
             losses = []
@@ -83,7 +97,7 @@ class MnistTrainer(object):
 
                     loss, accuracy = self.train_on_batch(batch_xs, batch_ys)
 
-                    print(loss, accuracy)
+                    # print(loss, accuracy)
 
 
                     losses.append(loss)
