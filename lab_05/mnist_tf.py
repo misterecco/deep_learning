@@ -43,7 +43,46 @@ class MnistTrainer():
     @staticmethod
     def softmax(y):
         y_exp = tf.exp(y)
-        return y_exp / tf.reduce_sum(y_exp)
+        return y_exp / tf.expand_dims(tf.reduce_sum(y_exp, -1), -1)
+
+
+    @staticmethod
+    def activation(v):
+        return tf.nn.relu(v)
+
+
+    @staticmethod
+    def weight_variable(shape):
+        initial = tf.truncated_normal(shape, stddev=0.1)
+        return tf.Variable(initial)
+
+
+    @staticmethod
+    def bias_variable(shape):
+        initial = tf.constant(0.1, shape=shape)
+        return tf.Variable(initial)
+
+
+    @staticmethod
+    def layer(x, in_size, out_size):
+        W = MnistTrainer.weight_variable([in_size, out_size])
+        b = MnistTrainer.bias_variable([out_size])
+
+        return MnistTrainer.activation(tf.matmul(x, W) + b)
+
+
+    def update_variables(self):
+        learning_rate = 0.05
+        var_list = tf.all_variables()
+        grads = tf.gradients(self.loss, var_list)
+
+        var_updates = []
+
+        for grad, var in zip(grads, var_list):
+            var_updates.append(var.assign_sub(learning_rate * grad))
+
+        return tf.group(*var_updates)
+
 
     def train_on_batch(self, batch_xs, batch_ys):
         feed_dict = {
@@ -56,22 +95,24 @@ class MnistTrainer():
         return self.sess.run([self.loss, self.accuracy], feed_dict=feed_dict)
 
 
-    def create_model(self):
+    def create_model(self, hidden_layers=()):
         self.x = tf.placeholder(tf.float32, shape=[None, 784], name='x')
         self.y_target = tf.placeholder(tf.float32, shape=[None, 10])
 
-        W = tf.Variable(tf.zeros([784, 10]))
-        b = tf.Variable(tf.zeros([10]))
+        layers_shapes = (784, *hidden_layers, 10)
+        layers = [self.x]
 
-        y = tf.matmul(self.x, W) + b
+        for i in range(1, len(layers_shapes)):
+            layers.append(self.layer(layers[i-1], layers_shapes[i-1], layers_shapes[i]))
 
-        # self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_target, logits=self.y))
+        y = layers[-1]
 
+        # self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y_target, logits=y))
         m_log = (-1.0) * tf.log(self.softmax(y))
+        self.loss = tf.reduce_mean(tf.multiply(m_log, self.y_target))
 
-        self.loss = tf.reduce_sum(tf.multiply(m_log, self.y_target))
-
-        self.train_step = tf.train.GradientDescentOptimizer(0.001).minimize(self.loss)
+        # self.train_step = tf.train.GradientDescentOptimizer(0.05).minimize(self.loss)
+        self.train_step = self.update_variables()
 
         correct_prediction = tf.equal(tf.arg_max(self.y_target, 1), tf.arg_max(y, 1))
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
@@ -80,7 +121,7 @@ class MnistTrainer():
 
     def train(self):
 
-        self.create_model()
+        self.create_model(hidden_layers=(1000, 200))
         mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
 
