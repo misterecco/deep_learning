@@ -3,6 +3,10 @@ import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
 import os
 
+LOG_DIR_TRAIN = 'out/mnist_tf/train'
+LOG_DIR_TEST = 'out/mnist_tf/test'
+SESSION_PATH = 'tmp/model.ckpt'
+
 ''''
 Tasks:
 1. Train a simple linear model(no hidden layers) on the mnist dataset.
@@ -72,7 +76,7 @@ class MnistTrainer():
 
 
     def update_variables(self):
-        learning_rate = 0.05
+        learning_rate = 0.01
         var_list = tf.all_variables()
         grads = tf.gradients(self.loss, var_list)
 
@@ -90,9 +94,9 @@ class MnistTrainer():
             self.y_target: batch_ys
         }
 
-        self.sess.run(self.train_step, feed_dict=feed_dict)
+        loss, acc, summ, _ = self.sess.run([self.loss, self.accuracy, self.all_summaries,  self.train_step], feed_dict=feed_dict)
 
-        return self.sess.run([self.loss, self.accuracy], feed_dict=feed_dict)
+        return loss, acc, summ
 
 
     def create_model(self, hidden_layers=()):
@@ -117,17 +121,36 @@ class MnistTrainer():
         correct_prediction = tf.equal(tf.arg_max(self.y_target, 1), tf.arg_max(y, 1))
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
+        tf.summary.scalar('loss', self.loss)
+        tf.summary.scalar('accuracy', self.accuracy)
+        self.all_summaries = tf.summary.merge_all()
+
+
+    def restore_session(self):
+        # XXX: check if file exists
+        print('Reading checkpoint: {}'.format(SESSION_PATH))
+        self.saver.restore(self.sess, SESSION_PATH)
 
 
     def train(self):
-
         self.create_model(hidden_layers=(1000, 200))
         mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
 
 
         with tf.Session() as self.sess:
+            self.saver = tf.train.Saver()
+
+            train_writer = tf.summary.FileWriter(LOG_DIR_TRAIN, self.sess.graph)
+            test_writer = tf.summary.FileWriter(LOG_DIR_TEST, self.sess.graph)
+
+            # XXX: this should be tf variable (so it will get saved in checkpoint)
+            step = 0
+
             tf.global_variables_initializer().run()  # initialize variables
+
+            self.restore_session()
+
             batches_n = 10000
             mb_size = 128
 
@@ -136,7 +159,7 @@ class MnistTrainer():
                 for batch_idx in range(batches_n):
                     batch_xs, batch_ys = mnist.train.next_batch(mb_size)
 
-                    loss, accuracy = self.train_on_batch(batch_xs, batch_ys)
+                    loss, accuracy, summary = self.train_on_batch(batch_xs, batch_ys)
 
                     # print(loss, accuracy)
 
@@ -144,9 +167,18 @@ class MnistTrainer():
                     losses.append(loss)
 
                     if batch_idx % 100 == 0:
+                        step += 1
+                        train_writer.add_summary(summary, step)
+                        train_writer.flush()
+
                         print('Batch {batch_idx}: loss {loss}, mean_loss {mean_loss}'.format(
                             batch_idx=batch_idx, loss=loss, mean_loss=np.mean(losses[-200:]))
                         )
+
+                        test_summary = self.sess.run(self.all_summaries, feed_dict={self.x: mnist.test.images, self.y_target: mnist.test.labels})
+                        test_writer.add_summary(test_summary, step)
+                        test_writer.flush()
+
 
 
             except KeyboardInterrupt:
@@ -156,6 +188,8 @@ class MnistTrainer():
             # Test trained model
             print('Test results', self.sess.run([self.loss, self.accuracy], feed_dict={self.x: mnist.test.images,
                                                 self.y_target: mnist.test.labels}))
+
+            self.saver.save(self.sess, SESSION_PATH)
 
 
 if __name__ == '__main__':

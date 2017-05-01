@@ -26,11 +26,11 @@ all_summaries = merged = tf.summary.merge_all()
 with tf.Session() as sess:
     summary_writer = tf.summary.FileWriter(LOG_DIR, sess.graph)
 
-    for i in xrange(30):
+    for i in range(30):
         feed_dict = {a: float(i), b: float(i)}
 
         sum_, diff_, summary_ = sess.run([sum, diff, all_summaries], feed_dict)
-        print sum_, diff_
+        print(sum_, diff_)
         summary_writer.add_summary(summary_, i)
         summary_writer.flush()
 
