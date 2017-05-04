@@ -45,7 +45,7 @@ To get more meaningful experience with training convnets use the CIFAR dataset.
 class MnistTrainer(object):
     def train_on_batch(self, batch_xs, batch_ys):
         results = self.sess.run([self.train_step, self.loss, self.accuracy],
-                                feed_dict={self.x: batch_xs, self.y_target: batch_ys})
+                                feed_dict={self.x: batch_xs, self.y_target: batch_ys, self.keep_prob: 0.5})
         return results[1:]
 
     def weight_variable(self, shape, stddev):
@@ -56,16 +56,39 @@ class MnistTrainer(object):
         initializer = tf.constant(bias, shape=shape)
         return tf.Variable(initializer, name='bias')
 
+    def dropout(self, x, keep_prob):
+        random_tensor = keep_prob
+        random_tensor += tf.random_uniform(x.get_shape(), dtype=x.dtype)
+        binary_tensor = tf.floor(random_tensor)
+        ret = x / keep_prob * binary_tensor
+        ret.set_shape(x.get_shape())
+
+        return ret
+
+    def batch_normalization(self, x):
+        beta = tf.Variable(1.0, dtype=tf.float32)
+        gamma = tf.Variable(0.0, dtype=tf.float32)
+        eps = 0.00001
+        mean = tf.reduce_mean(x)
+        devs_squared = tf.square(x - mean)
+        var = tf.reduce_mean(devs_squared)
+        std = tf.sqrt(var + eps)
+        x_norm = (x - mean) / std
+
+        return x_norm * beta + gamma
+
     def create_model(self):
         self.x = tf.placeholder(tf.float32, [None, 784], name='x')
         self.y_target = tf.placeholder(tf.float32, [None, 10])
+        self.keep_prob = tf.placeholder(tf.float32)
 
-        neurons_list = [64] * 2 + [10]
+        neurons_list = [64] * 5 + [10]
         signal = self.x
-        print 'shape', signal.get_shape()
+        print('shape', signal.get_shape())
         for idx, new_num_neurons in enumerate(neurons_list):
             cur_num_neurons = int(signal.get_shape()[1])
-            stddev = 0.5
+            # stddev = 0.5
+            stddev = 2 / new_num_neurons
             with tf.variable_scope('fc_'+str(idx+1)):
                 W_fc = self.weight_variable([cur_num_neurons, new_num_neurons], stddev)
                 b_fc = self.bias_variable([new_num_neurons], 0.0)
@@ -73,15 +96,17 @@ class MnistTrainer(object):
             signal = tf.matmul(signal, W_fc) + b_fc
 
             if idx != len(neurons_list)-1:
+                # signal = self.dropout(signal, self.keep_prob)
+                signal = self.batch_normalization(signal)
                 signal = tf.nn.relu(signal)
-            print 'shape', signal.get_shape()
+            print('shape', signal.get_shape())
 
         self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=signal, labels=self.y_target))
         self.accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(self.y_target, axis=1), tf.argmax(signal, axis=1)), tf.float32))
 
         self.train_step = tf.train.MomentumOptimizer(0.05, momentum=0.9).minimize(self.loss)
 
-        print 'list of variables', map(lambda x: x.name, tf.global_variables())
+        print('list of variables', map(lambda x: x.name, tf.global_variables()))
 
     def train(self):
  
@@ -109,7 +134,8 @@ class MnistTrainer(object):
                         )
                         print('Test results', self.sess.run([self.loss, self.accuracy],
                                                             feed_dict={self.x: mnist.test.images,
-                                                                       self.y_target: mnist.test.labels}))
+                                                                       self.y_target: mnist.test.labels,
+                                                                       self.keep_prob: 1.0}))
 
  
             except KeyboardInterrupt:
@@ -118,7 +144,7 @@ class MnistTrainer(object):
  
             # Test trained model
             print('Test results', self.sess.run([self.loss, self.accuracy], feed_dict={self.x: mnist.test.images,
-                                                self.y_target: mnist.test.labels}))
+                                                self.y_target: mnist.test.labels, self.keep_prob: 1.0}))
  
  
 if __name__ == '__main__':
