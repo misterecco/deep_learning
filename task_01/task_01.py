@@ -3,43 +3,110 @@ import numpy as np
 import math
 from tensorflow.examples.tutorials.mnist import input_data
 import os
- 
-''''
-
-Link to lecture slides: 
-https://docs.google.com/presentation/d/1Vh8NPCWkgVy_I79aqjHyDnlp7TNmVfaEqfIc4LAM-JM/edit?usp=sharing
 
 
-Tasks:
-1. Check that the given implementation reaches 95% test accuracy for
-   architecture input-64-64-10 in a few thousand batches.
+def weight_variable(shape, stddev):
+    initializer = tf.truncated_normal(shape, stddev=stddev)
+    return tf.Variable(initializer, name='weight')
 
-2. Improve initialization and check that the network learns much faster
-   and reaches over 97% test accuracy.
 
-3. Check, that with proper initialization we can train architecture input-64-64-64-64-64-10,
-   while with bad initialization it does not even get off the ground.
+def bias_variable(shape, bias):
+    initializer = tf.constant(bias, shape=shape)
+    return tf.Variable(initializer, name='bias')
 
-4. If you do not feel comfortable enough with training networks and/or tensorflow I suggest adding
-dropout implemented in tensorflow (check documentation, new placeholder will be needed to indicate train/test phase).
 
-5. Check that with 10 hidden layers (64 units each) even with proper initialization
-   the network has a hard time to start learning.
+def dropout(x, keep_prob):
+    random_tensor = keep_prob
+    random_tensor += tf.random_uniform(x.get_shape(), dtype=x.dtype)
+    binary_tensor = tf.floor(random_tensor)
+    ret = x / keep_prob * binary_tensor
+    ret.set_shape(x.get_shape())
 
-6. Implement batch normalization (use train mode also for testing - it should perform well enough):
-    * compute batch mean and variance as tensorflow operations,
-    * add new variables beta and gamma to scale and shift the result,
-    * check that the networks learns much faster for 5 layers (even though training time per batch is a bit longer),
-    * check that the network learns even for 10 hidden layers.
+    return ret
 
-Bonus task:
 
-Design and implement in tensorflow (by using tensorflow functions) a simple convnet and achieve 99% test accuracy.
+def reshape(x, new_shape):
+    return tf.reshape(x, shape=new_shape)
 
-Note:
-This is an exemplary exercise. MNIST dataset is very simple and we are using it here to get resuts quickly.
-To get more meaningful experience with training convnets use the CIFAR dataset.
-'''
+
+class InputLayer():
+    def __init__(self, shape, **kwargs):
+        self.shape = shape
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return "Input layer: {}".format(self.shape)
+
+    def __call__(self):
+        return tf.placeholder(tf.float32, self.shape, *self.kwargs)
+
+
+class ReluActivation():
+    def __str__(self):
+        return "Relu activation"
+
+    def __call__(self, signal):
+        return tf.nn.relu(signal)
+
+
+class BatchNormalization():
+    def __str__(self):
+        return "Batch normalization"
+
+    def __call__(self, signal):
+        beta = tf.Variable(1.0, dtype=tf.float32)
+        gamma = tf.Variable(0.0, dtype=tf.float32)
+
+        eps = 0.00001
+        mean = tf.reduce_mean(signal)
+        devs_squared = tf.square(signal - mean)
+        var = tf.reduce_mean(devs_squared)
+        std = tf.sqrt(var + eps)
+        x_norm = (signal - mean) / std
+
+        return x_norm * beta + gamma
+
+
+class Dropout():
+    def __str__(self):
+        return "Dropout"
+
+    def __call__(self, signal, keep_prob):
+        random_tensor = keep_prob
+        random_tensor += tf.random_uniform(signal.get_shape(), dtype=signal.dtype)
+        binary_tensor = tf.floor(random_tensor)
+        ret = signal / keep_prob * binary_tensor
+        ret.set_shape(signal.get_shape())
+
+        return ret
+
+
+class FullyConnectedLayer():
+    def __init__(self, new_num_neurons):
+        self.new_num_neurons = new_num_neurons
+
+    def __str__(self):
+        return "Fully connected layer: {}".format(self.new_num_neurons)
+
+    def __call__(self, signal):
+        cur_num_neurons = int(signal.get_shape()[1])
+        stddev = 2 / self.new_num_neurons
+
+        W_fc = weight_variable([cur_num_neurons, self.new_num_neurons], stddev)
+        b_fc = bias_variable([self.new_num_neurons], 0.0)
+
+        return tf.matmul(signal, W_fc) + b_fc
+
+
+class ConvolutionalLayer():
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        pass
+
+    def __call__(self, signal):
+        return signal
 
 
 class MnistTrainer(object):
@@ -48,65 +115,45 @@ class MnistTrainer(object):
                                 feed_dict={self.x: batch_xs, self.y_target: batch_ys, self.keep_prob: 0.5})
         return results[1:]
 
-    def weight_variable(self, shape, stddev):
-        initializer = tf.truncated_normal(shape, stddev=stddev)
-        return tf.Variable(initializer, name='weight')
-
-    def bias_variable(self, shape, bias):
-        initializer = tf.constant(bias, shape=shape)
-        return tf.Variable(initializer, name='bias')
-
-    def dropout(self, x, keep_prob):
-        random_tensor = keep_prob
-        random_tensor += tf.random_uniform(x.get_shape(), dtype=x.dtype)
-        binary_tensor = tf.floor(random_tensor)
-        ret = x / keep_prob * binary_tensor
-        ret.set_shape(x.get_shape())
-
-        return ret
-
-    def batch_normalization(self, x):
-        beta = tf.Variable(1.0, dtype=tf.float32)
-        gamma = tf.Variable(0.0, dtype=tf.float32)
-        eps = 0.00001
-        mean = tf.reduce_mean(x)
-        devs_squared = tf.square(x - mean)
-        var = tf.reduce_mean(devs_squared)
-        std = tf.sqrt(var + eps)
-        x_norm = (x - mean) / std
-
-        return x_norm * beta + gamma
 
     def create_model(self):
-        self.x = tf.placeholder(tf.float32, [None, 784], name='x')
-        self.y_target = tf.placeholder(tf.float32, [None, 10])
+        self.x = InputLayer([None, 784], name='x')()
+        self.y_target = InputLayer([None, 10])()
         self.keep_prob = tf.placeholder(tf.float32)
 
-        neurons_list = [64] * 5 + [10]
+        layersList = [
+            FullyConnectedLayer(64),
+            BatchNormalization(),
+            ReluActivation(),
+            FullyConnectedLayer(64),
+            BatchNormalization(),
+            ReluActivation(),
+            FullyConnectedLayer(64),
+            BatchNormalization(),
+            ReluActivation(),
+            FullyConnectedLayer(64),
+            BatchNormalization(),
+            ReluActivation(),
+            FullyConnectedLayer(64),
+            BatchNormalization(),
+            ReluActivation(),
+            FullyConnectedLayer(10),
+        ]
+
         signal = self.x
-        print('shape', signal.get_shape())
-        for idx, new_num_neurons in enumerate(neurons_list):
-            cur_num_neurons = int(signal.get_shape()[1])
-            # stddev = 0.5
-            stddev = 2 / new_num_neurons
-            with tf.variable_scope('fc_'+str(idx+1)):
-                W_fc = self.weight_variable([cur_num_neurons, new_num_neurons], stddev)
-                b_fc = self.bias_variable([new_num_neurons], 0.0)
 
-            signal = tf.matmul(signal, W_fc) + b_fc
+        print('Signal shape: {}'.format(signal.get_shape()))
+        for idx, layer in enumerate(layersList):
+            print(layer)
+            signal = layer(signal)
 
-            if idx != len(neurons_list)-1:
-                # signal = self.dropout(signal, self.keep_prob)
-                signal = self.batch_normalization(signal)
-                signal = tf.nn.relu(signal)
-            print('shape', signal.get_shape())
+        print('Signal shape: {}'.format(signal.get_shape()))
 
         self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=signal, labels=self.y_target))
         self.accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(self.y_target, axis=1), tf.argmax(signal, axis=1)), tf.float32))
 
         self.train_step = tf.train.MomentumOptimizer(0.05, momentum=0.9).minimize(self.loss)
-
-        print('list of variables', map(lambda x: x.name, tf.global_variables()))
+        # print('list of variables', list(map(lambda x: x.name, tf.global_variables())))
 
     def train(self):
  
