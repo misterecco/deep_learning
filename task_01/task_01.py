@@ -1,112 +1,10 @@
 import tensorflow as tf
 import numpy as np
-import math
+import matplotlib.pyplot as plt
+
 from tensorflow.examples.tutorials.mnist import input_data
-import os
-
-
-def weight_variable(shape, stddev):
-    initializer = tf.truncated_normal(shape, stddev=stddev)
-    return tf.Variable(initializer, name='weight')
-
-
-def bias_variable(shape, bias):
-    initializer = tf.constant(bias, shape=shape)
-    return tf.Variable(initializer, name='bias')
-
-
-def dropout(x, keep_prob):
-    random_tensor = keep_prob
-    random_tensor += tf.random_uniform(x.get_shape(), dtype=x.dtype)
-    binary_tensor = tf.floor(random_tensor)
-    ret = x / keep_prob * binary_tensor
-    ret.set_shape(x.get_shape())
-
-    return ret
-
-
-def reshape(x, new_shape):
-    return tf.reshape(x, shape=new_shape)
-
-
-class InputLayer():
-    def __init__(self, shape, **kwargs):
-        self.shape = shape
-        self.kwargs = kwargs
-
-    def __str__(self):
-        return "Input layer: {}".format(self.shape)
-
-    def __call__(self):
-        return tf.placeholder(tf.float32, self.shape, *self.kwargs)
-
-
-class ReluActivation():
-    def __str__(self):
-        return "Relu activation"
-
-    def __call__(self, signal):
-        return tf.nn.relu(signal)
-
-
-class BatchNormalization():
-    def __str__(self):
-        return "Batch normalization"
-
-    def __call__(self, signal):
-        beta = tf.Variable(1.0, dtype=tf.float32)
-        gamma = tf.Variable(0.0, dtype=tf.float32)
-
-        eps = 0.00001
-        mean = tf.reduce_mean(signal)
-        devs_squared = tf.square(signal - mean)
-        var = tf.reduce_mean(devs_squared)
-        std = tf.sqrt(var + eps)
-        x_norm = (signal - mean) / std
-
-        return x_norm * beta + gamma
-
-
-class Dropout():
-    def __str__(self):
-        return "Dropout"
-
-    def __call__(self, signal, keep_prob):
-        random_tensor = keep_prob
-        random_tensor += tf.random_uniform(signal.get_shape(), dtype=signal.dtype)
-        binary_tensor = tf.floor(random_tensor)
-        ret = signal / keep_prob * binary_tensor
-        ret.set_shape(signal.get_shape())
-
-        return ret
-
-
-class FullyConnectedLayer():
-    def __init__(self, new_num_neurons):
-        self.new_num_neurons = new_num_neurons
-
-    def __str__(self):
-        return "Fully connected layer: {}".format(self.new_num_neurons)
-
-    def __call__(self, signal):
-        cur_num_neurons = int(signal.get_shape()[1])
-        stddev = 2 / self.new_num_neurons
-
-        W_fc = weight_variable([cur_num_neurons, self.new_num_neurons], stddev)
-        b_fc = bias_variable([self.new_num_neurons], 0.0)
-
-        return tf.matmul(signal, W_fc) + b_fc
-
-
-class ConvolutionalLayer():
-    def __init__(self):
-        pass
-
-    def __str__(self):
-        pass
-
-    def __call__(self, signal):
-        return signal
+from ops import (InputLayer, ReluActivation, FullyConnectedLayer, BatchNormalization,  Reshape, ConvolutionalLayer2D,
+                MaxPool, Dropout, Flatten)
 
 
 class MnistTrainer(object):
@@ -116,27 +14,28 @@ class MnistTrainer(object):
         return results[1:]
 
 
-    def create_model(self):
-        self.x = InputLayer([None, 784], name='x')()
+    def create_model(self, x):
+        self.x = x
         self.y_target = InputLayer([None, 10])()
         self.keep_prob = tf.placeholder(tf.float32)
 
         layersList = [
-            FullyConnectedLayer(64),
+            Reshape([-1, 28, 28, 1]),
+            ConvolutionalLayer2D(size=3, filters=5, stride=1),
             BatchNormalization(),
             ReluActivation(),
-            FullyConnectedLayer(64),
+            MaxPool(size=2, stride=2),
+            ConvolutionalLayer2D(size=3, filters=5, stride=1),
             BatchNormalization(),
             ReluActivation(),
-            FullyConnectedLayer(64),
+            MaxPool(size=2, stride=2),
+            Flatten(),
             BatchNormalization(),
+            Dropout(self.keep_prob),
             ReluActivation(),
-            FullyConnectedLayer(64),
-            BatchNormalization(),
+            FullyConnectedLayer(1024),
             ReluActivation(),
-            FullyConnectedLayer(64),
-            BatchNormalization(),
-            ReluActivation(),
+            Dropout(self.keep_prob),
             FullyConnectedLayer(10),
         ]
 
@@ -146,8 +45,9 @@ class MnistTrainer(object):
         for idx, layer in enumerate(layersList):
             print(layer)
             signal = layer(signal)
+            print('\tSignal shape: {}'.format(signal.get_shape()))
 
-        print('Signal shape: {}'.format(signal.get_shape()))
+        self.out = signal
 
         self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=signal, labels=self.y_target))
         self.accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(self.y_target, axis=1), tf.argmax(signal, axis=1)), tf.float32))
@@ -155,15 +55,20 @@ class MnistTrainer(object):
         self.train_step = tf.train.MomentumOptimizer(0.05, momentum=0.9).minimize(self.loss)
         # print('list of variables', list(map(lambda x: x.name, tf.global_variables())))
 
+
     def train(self):
  
-        self.create_model()
+        self.create_model(InputLayer([None, 784], name='x')())
         mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
  
         with tf.Session() as self.sess:
+            self.saver = tf.train.Saver()
+
+            print(tf.trainable_variables())
+
             tf.global_variables_initializer().run()  # initialize variables
-            batches_n = 100000
+            batches_n = 20000
             mb_size = 128
 
             losses = []
@@ -179,6 +84,8 @@ class MnistTrainer(object):
                         print('Batch {batch_idx}: mean_loss {mean_loss}'.format(
                             batch_idx=batch_idx, mean_loss=np.mean(losses[-200:], axis=0))
                         )
+
+                    if batch_idx % 1000 == 0:
                         print('Test results', self.sess.run([self.loss, self.accuracy],
                                                             feed_dict={self.x: mnist.test.images,
                                                                        self.y_target: mnist.test.labels,
@@ -192,10 +99,61 @@ class MnistTrainer(object):
             # Test trained model
             print('Test results', self.sess.run([self.loss, self.accuracy], feed_dict={self.x: mnist.test.images,
                                                 self.y_target: mnist.test.labels, self.keep_prob: 1.0}))
+
+            self.saver.save(self.sess, 'checkpoints/best.ckpt')
+
+
+    def create_viz_model(self, number):
+        perfect_answer = [1. if i == number else 0. for i in range(0, 10)]
+        print(perfect_answer)
+
+        self.answers = tf.nn.softmax(self.out)
+        zeros = tf.zeros_like(self.x, dtype=tf.float32)
+        ones = tf.zeros_like(self.x, dtype=tf.float32)
+
+        self.ls = 100 * tf.reduce_sum(tf.square(self.answers - perfect_answer)) \
+                  + tf.reduce_sum(tf.square(tf.minimum(self.x, zeros))) \
+                  + tf.reduce_sum(tf.square(ones - tf.maximum(self.x, ones)))
+
+        self.opt = tf.train.MomentumOptimizer(0.05, momentum=0.9).minimize(self.ls, var_list=[self.x])
+
+
+    def visualize_numbers(self):
+        self.create_model(tf.Variable(tf.zeros(shape=[1, 28*28]), dtype=tf.float32, name='x'))
+
+        self.create_viz_model(5)
+
+        # self.create_viz_model(5)
+        mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+
+        with tf.Session() as self.sess:
+            print(tf.trainable_variables())
+
+            self.saver = tf.train.Saver(var_list=tf.trainable_variables()[1:])
+
+            tf.global_variables_initializer().run()  # initialize variables
+
+            self.saver.restore(self.sess, 'checkpoints/best.ckpt', )
+
+            for step in range(1001):
+                loss, x, out, _ = self.sess.run([self.ls, self.x, self.answers, self.opt], feed_dict={self.y_target: mnist.test.labels, self.keep_prob: 1.0})
+                if step % 100 == 0:
+                    print("Step {}".format(step), loss, out)
+                if step == 1000:
+                    # print(x)
+                    xnp = np.array(x).reshape([28, 28])
+                    plt.imshow(xnp, cmap=plt.cm.binary, interpolation='nearest')
+                    plt.show()
+
+
+
+
+
  
  
 if __name__ == '__main__':
     trainer = MnistTrainer()
-    trainer.train()
+    # trainer.train()
 
+    trainer.visualize_numbers()
 
