@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 
+from PIL import Image
 from tensorflow.examples.tutorials.mnist import input_data
 from ops import (InputLayer, ReluActivation, FullyConnectedLayer, BatchNormalization,  Reshape, ConvolutionalLayer2D,
                 MaxPool, Dropout, Flatten)
@@ -39,6 +40,7 @@ class MnistTrainer(object):
             FullyConnectedLayer(10),
         ]
 
+        # signal = tf.clip_by_value(self.x, 0.0, 1.0)
         signal = self.x
 
         print('Signal shape: {}'.format(signal.get_shape()))
@@ -103,49 +105,52 @@ class MnistTrainer(object):
             self.saver.save(self.sess, 'checkpoints/best.ckpt')
 
 
-    def create_viz_model(self, number):
-        perfect_answer = [1. if i == number else 0. for i in range(0, 10)]
-        print(perfect_answer)
+    def create_viz_model(self):
+        self.opt = tf.train.MomentumOptimizer(0.05, momentum=0.9).minimize(self.loss, var_list=[self.x])
 
-        self.answers = tf.nn.softmax(self.out)
-        zeros = tf.zeros_like(self.x, dtype=tf.float32)
-        ones = tf.zeros_like(self.x, dtype=tf.float32)
 
-        self.ls = 100 * tf.reduce_sum(tf.square(self.answers - perfect_answer)) \
-                  + tf.reduce_sum(tf.square(tf.minimum(self.x, zeros))) \
-                  + tf.reduce_sum(tf.square(ones - tf.maximum(self.x, ones)))
+    def save_images(self, data):
+        for i in range(data.shape[0]):
+            img_data = data[i].reshape((28, 28))
+            print(img_data.shape)
+            img = Image.fromarray(img_data, 'L')
+            img.save('numbers/num_{}.png'.format(i))
 
-        self.opt = tf.train.MomentumOptimizer(0.05, momentum=0.9).minimize(self.ls, var_list=[self.x])
+
+    def plot_digits(self, data):
+        fig, axes = plt.subplots(2, 5, figsize=(10, 10),
+                                 subplot_kw={'xticks': [], 'yticks': []},
+                                 gridspec_kw=dict(hspace=0.1, wspace=0.1))
+        for i, ax in enumerate(axes.flat):
+            ax.imshow(data[i].reshape(28, 28),
+                      cmap='gist_yarg', interpolation='nearest',
+                      clim=(0, 16))
+
+        plt.show()
 
 
     def visualize_numbers(self):
-        self.create_model(tf.Variable(tf.zeros(shape=[1, 28*28]), dtype=tf.float32, name='x'))
+        self.create_model(tf.Variable(tf.truncated_normal(shape=[10, 28*28], stddev=1), dtype=tf.float32, name='x'))
+        y = [[1. if i == number else 0. for i in range(0, 10)] for number in range(0, 10)]
 
-        self.create_viz_model(5)
-
-        # self.create_viz_model(5)
-        mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+        self.create_viz_model()
 
         with tf.Session() as self.sess:
-            print(tf.trainable_variables())
-
             self.saver = tf.train.Saver(var_list=tf.trainable_variables()[1:])
 
-            tf.global_variables_initializer().run()  # initialize variables
+            tf.global_variables_initializer().run()
 
-            self.saver.restore(self.sess, 'checkpoints/best.ckpt', )
+            self.saver.restore(self.sess, 'checkpoints/best.ckpt')
 
-            for step in range(1001):
-                loss, x, out, _ = self.sess.run([self.ls, self.x, self.answers, self.opt], feed_dict={self.y_target: mnist.test.labels, self.keep_prob: 1.0})
+            steps = 10000
+
+            for step in range(steps+1):
+                loss, x, acc, _ = self.sess.run([self.loss, self.x, self.accuracy, self.opt], feed_dict={self.y_target: y, self.keep_prob: 1.0})
                 if step % 100 == 0:
-                    print("Step {}".format(step), loss, out)
-                if step == 1000:
-                    # print(x)
-                    xnp = np.array(x).reshape([28, 28])
-                    plt.imshow(xnp, cmap=plt.cm.binary, interpolation='nearest')
-                    plt.show()
-
-
+                    print("Step {}".format(step), loss, acc)
+                if step == steps:
+                    self.save_images(x)
+                    # self.plot_digits(x)
 
 
 
@@ -153,7 +158,7 @@ class MnistTrainer(object):
  
 if __name__ == '__main__':
     trainer = MnistTrainer()
-    # trainer.train()
+    trainer.train()
 
-    trainer.visualize_numbers()
+    # trainer.visualize_numbers()
 
