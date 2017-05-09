@@ -59,15 +59,11 @@ class MnistTrainer(object):
 
 
     def train(self):
- 
         self.create_model(InputLayer([None, 784], name='x')())
         mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
- 
         with tf.Session() as self.sess:
             self.saver = tf.train.Saver()
-
-            print(tf.trainable_variables())
 
             tf.global_variables_initializer().run()  # initialize variables
             batches_n = 20000
@@ -112,7 +108,6 @@ class MnistTrainer(object):
     def save_images(self, data):
         for i in range(data.shape[0]):
             img_data = data[i].reshape((28, 28))
-            print(img_data.shape)
             img = Image.fromarray(img_data, 'L')
             img.save('numbers/num_{}.png'.format(i))
 
@@ -150,15 +145,14 @@ class MnistTrainer(object):
                     print("Step {}".format(step), loss, acc)
                 if step == steps:
                     self.save_images(x)
-                    # self.plot_digits(x)
+                    self.plot_digits(x)
 
 
 
- 
- 
 if __name__ == '__main__':
     trainer = MnistTrainer()
+
+    # Train and visualize modes are mutally exclusive. Leave one uncommented at a time
     trainer.train()
-
     # trainer.visualize_numbers()
-
+1
