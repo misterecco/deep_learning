@@ -1,14 +1,17 @@
 import tensorflow as tf
+import numpy as np
+from ops.queues import create_batch_queue, IMAGE_SIZE
+from ops.basic import pixel_wise_softmax, loss_function, concat, relu
+from ops.complex import conv, max_pool, convout, bn_conv_relu, bn_upconv_relu
 
 
 DATASET_PATH = './spacenet2'
 TRAINING_SET = 'training_set.txt'
 VALIDATION_SET = 'validation_set.txt'
 
-BATCH_SIZE = 8
-IMAGE_SIZE = 650
-NUM_CHANELS = 3
-
+BATCH_SIZE = 16
+BATCHES_N = 100
+NN_IMAGE_SIZE = 256
 
 
 def prepare_file_list(file):
@@ -20,7 +23,7 @@ def prepare_img_list(file_list):
     return [img_dir + f for f in file_list]
 
 def prepare_ht_list(file_list):
-    ht_dir = DATASET_PATH + "/images/"
+    ht_dir = DATASET_PATH + "/heatmaps/"
     return [ht_dir + f for f in file_list]
 
 def prepare_file_paths(file):
@@ -28,61 +31,65 @@ def prepare_file_paths(file):
     return (prepare_img_list(file_list), prepare_ht_list(file_list))
 
 
-
 class Trainer():
+    # TODO: data augmentation
     def prepare_queues(self):
         train_paths = prepare_file_paths(TRAINING_SET)
         val_paths = prepare_file_paths(VALIDATION_SET)
 
-        train_paths_tensors = [tf.convert_to_tensor(path, dtype=tf.string) for path in train_paths]
-        val_paths_tensors = [tf.convert_to_tensor(path, dtype=tf.string) for path in val_paths]
+        self.train_image_batches = create_batch_queue(train_paths, batch_size=BATCH_SIZE)
+        self.val_image_batches = create_batch_queue(val_paths, batch_size=BATCH_SIZE)
 
-        train_input_queue = tf.train.slice_input_producer(
-            train_paths_tensors,
-            shuffle=True
-        )
-        val_input_queue = tf.train.slice_input_producer(
-            val_paths_tensors,
-            shuffle=True
-        )
 
-        train_file_contents = [tf.read_file(file) for file in train_input_queue]
-        val_file_contents = [tf.read_file(file) for file in val_input_queue]
+    def create_model(self):
+        signal = self.train_image_batches[0]
+        ground_truth = self.train_image_batches[1]
 
-        train_images = [tf.image.decode_jpeg(img, channels=NUM_CHANELS) for img in train_file_contents]
-        val_images = [tf.image.decode_jpeg(img, channels=NUM_CHANELS) for img in val_file_contents]
+        signal = tf.image.resize_images(signal, [NN_IMAGE_SIZE, NN_IMAGE_SIZE])
 
-        for image in train_images:
-            image.set_shape([IMAGE_SIZE, IMAGE_SIZE, NUM_CHANELS])
-        for image in val_images:
-            image.set_shape([IMAGE_SIZE, IMAGE_SIZE, NUM_CHANELS])
+        signal = pixel_wise_softmax(signal)
 
-        self.train_image_batches = tf.train.batch(
-            train_images,
-            batch_size = BATCH_SIZE
-        )
-        self.val_image_batches = tf.train.batch(
-            val_images,
-            batch_size = BATCH_SIZE
-        )
+        signal = tf.image.resize_images(signal, [IMAGE_SIZE, IMAGE_SIZE])
+
+        self.out = signal
+
+
+        self.loss = loss_function(signal, ground_truth)
+        # self.train_step = tf.train.MomentumOptimizer(0.05, momentum=0.9).minimize(self.loss)
+
+
+    def train_on_batch(self):
+        results =  self.sess.run([self.loss, self.train_step])
+        results =  self.sess.run([self.loss, self.out])
+        print(results[1])
+        
+        return results[0] 
+
 
     def train(self):
         self.prepare_queues()
+        self.create_model()
+
+        losses = []
 
         with tf.Session() as self.sess:
             tf.global_variables_initializer().run()
 
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
+
+            try:
+                for batch_idx in range(BATCHES_N):
+
+                    vloss = self.train_on_batch()
+                    losses.append(vloss)
+
+                    print('Batch {}: mean_loss {}'.format(
+                        batch_idx, np.mean(losses[-200:], axis=0)))
             
-            print('From the train set:')
-            for _ in range(1):
-                print(self.sess.run(self.train_image_batches[0]))
-
-            print('From the val set:')
-            for _ in range(1):
-                print(self.sess.run(self.val_image_batches[0]))
-
+            except KeyboardInterrupt:
+                print('Stopping training -- keyboard interrupt')
+                
             coord.request_stop()
             coord.join(threads)
 
