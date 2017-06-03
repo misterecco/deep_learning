@@ -4,12 +4,12 @@ import numpy as np
 
 def weight_variable(shape, stddev):
     initializer = tf.truncated_normal(shape, stddev=stddev)
-    return tf.Variable(initializer, name='weight')
+    return tf.get_variable('weight', initializer=initializer)
 
 
 def bias_variable(shape, bias):
     initializer = tf.constant(bias, shape=shape)
-    return tf.Variable(initializer, name='bias')
+    return tf.get_variable('bias', initializer=initializer)
 
 
 def relu(signal):
@@ -21,8 +21,8 @@ def batch_norm(signal):
     size = shape[3] if len(shape) >= 4 else 1
     axis = [0, 1, 2] if len(shape) >= 4 else [0, 1]
 
-    beta = tf.Variable(tf.ones([size]), dtype=tf.float32)
-    gamma = tf.Variable(tf.zeros([size]), dtype=tf.float32)
+    beta = tf.get_variable('beta', initializer=tf.ones([size]), dtype=tf.float32)
+    gamma = tf.get_variable('gamma', initializer=tf.zeros([size]), dtype=tf.float32)
 
     eps = 0.00001
     mean = tf.reduce_mean(signal, axis=axis)
