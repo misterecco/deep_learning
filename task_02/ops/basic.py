@@ -85,3 +85,44 @@ def pixel_wise_cross_entropy(signal, ground_truth):
 
 def loss_function(signal, ground_truth):
     return pixel_wise_cross_entropy(signal, ground_truth)
+
+
+def cond_horizontal_flip(signal, cond):
+    return tf.cond(cond, 
+                   lambda: tf.reverse(signal, axis=[1]), 
+                   lambda: tf.identity(signal))
+
+
+def cond_vertical_flip(signal, cond):
+    return tf.cond(cond, 
+                   lambda: tf.reverse(signal, axis=[2]), 
+                   lambda: tf.identity(signal))
+
+
+def randomly_flip_images(img_1, img_2):
+    h_flip = tf.less(tf.random_uniform([], 0, 1.0), 0.5)
+    res_1 = cond_horizontal_flip(img_1, h_flip)
+    res_2 = cond_horizontal_flip(img_2, h_flip)
+
+    v_flip = tf.less(tf.random_uniform([], 0, 1.0), 0.5)
+    res_1 = cond_horizontal_flip(res_1, v_flip)
+    res_2 = cond_horizontal_flip(res_2, v_flip)
+
+    return res_1, res_2
+
+
+def horizontal_flip(signal):
+    return tf.reverse(signal, axis=[1])
+
+
+def vertical_flip(signal):
+    return tf.reverse(signal, axis=[2])
+
+
+def transpose(signal):
+    return tf.reverse(signal, axis=[1,2])
+
+
+def average(signals):
+    stack = tf.stack(signals)
+    return tf.reduce_mean(stack, axis=0, keep_dims=True)

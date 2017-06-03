@@ -6,7 +6,9 @@ import pathlib
 import os
 import sys
 from ops.queues import create_batch_queue, IMAGE_SIZE
-from ops.basic import pixel_wise_softmax, loss_function, concat, relu
+from ops.basic import (pixel_wise_softmax, loss_function, concat, 
+                       relu, randomly_flip_images, horizontal_flip,
+                       vertical_flip, transpose, average)
 from ops.complex import conv, max_pool, convout, bn_conv_relu, bn_upconv_relu
 
 
@@ -17,6 +19,7 @@ TRAINING_SET_SIZE = 10063
 VALIDATION_SET_SIZE = 530
 
 BATCH_SIZE = 8
+VAL_BATCH_SIZE = 1
 EPOCHS_N = 20
 NN_IMAGE_SIZE = 512
 BASE_CHANNELS = 8
@@ -45,7 +48,8 @@ logger.addHandler(ch)
 logger.warning("Nodename: {}".format(os.uname()[1]))
 logger.warning("Parameters: BATCH_SIZE: {}, NN_IMAGE_SIZE: {}, BASE_CHANNELS: {}".format(
     BATCH_SIZE, NN_IMAGE_SIZE, BASE_CHANNELS))
-if sys.argv[1]:
+logger.warning("Augmentation: horizontal and vertical flips")
+if len(sys.argv) > 1:
     logger.warning("Starting checkpoint file: {}".format(sys.argv[1]))
 logger.warning("Checkpoint file: {}".format(ckpt_filename))
 
@@ -73,7 +77,7 @@ class Trainer():
         val_paths = prepare_file_paths(VALIDATION_SET)
 
         self.train_image_batches = create_batch_queue(train_paths, batch_size=BATCH_SIZE)
-        self.val_image_batches = create_batch_queue(val_paths, batch_size=BATCH_SIZE)
+        self.val_image_batches = create_batch_queue(val_paths, batch_size=VAL_BATCH_SIZE)
 
 
     def create_nn(self, signal):
@@ -150,6 +154,8 @@ class Trainer():
         signal = self.train_image_batches[0]
         ground_truth = self.train_image_batches[1]
 
+        signal, ground_truth = randomly_flip_images(signal, ground_truth)
+
         self.u_net = tf.make_template('u_net', self.create_nn)
 
         signal = self.u_net(signal)
@@ -162,7 +168,20 @@ class Trainer():
         signal = self.val_image_batches[0]
         ground_truth = self.val_image_batches[1]
 
+        s1 = horizontal_flip(signal)
+        s2 = vertical_flip(signal)
+        s3 = transpose(signal)
+
         signal = self.u_net(signal)
+        s1 = self.u_net(s1)
+        s2 = self.u_net(s2)
+        s3 = self.u_net(s3)
+
+        s1 = horizontal_flip(s1)
+        s2 = vertical_flip(s2)
+        s3 = transpose(s3)
+        
+        signal = average([signal, s1, s2, s3])
 
         self.loss_val = loss_function(signal, ground_truth)
         self.out_val = pixel_wise_softmax(signal)
@@ -199,14 +218,14 @@ class Trainer():
 
 
     def run_validation_epoch(self):
-        steps = VALIDATION_SET_SIZE // BATCH_SIZE + 1      
+        steps = VALIDATION_SET_SIZE // VAL_BATCH_SIZE    
         losses = []  
         self.run_epoch(self.predict_batch, steps, losses)
         logger.info("Validation set loss: {}".format(np.mean(losses, axis=0)))
 
 
     def load_checkpoint(self):
-        if sys.argv[1]:
+        if len(sys.argv) > 1:
             self.saver.restore(self.sess, sys.argv[1])
 
 
