@@ -4,6 +4,7 @@ import tensorflow as tf
 import numpy as np
 import pathlib
 import os
+import sys
 from ops.queues import create_batch_queue, IMAGE_SIZE
 from ops.basic import pixel_wise_softmax, loss_function, concat, relu
 from ops.complex import conv, max_pool, convout, bn_conv_relu, bn_upconv_relu
@@ -20,8 +21,10 @@ EPOCHS_N = 20
 NN_IMAGE_SIZE = 512
 BASE_CHANNELS = 8
 
+date_string = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H:%M")
+log_filename = "log/{}.log".format(date_string)
+ckpt_filename = "checkpoints/{}.ckpt".format(date_string)
 
-log_filename = datetime.datetime.utcnow().strftime("log/%Y-%m-%d_%H:%M.log")
 pathlib.Path(log_filename).touch()
 logger = logging.getLogger('u-net')
 logger.setLevel(logging.DEBUG)
@@ -42,6 +45,9 @@ logger.addHandler(ch)
 logger.warning("Nodename: {}".format(os.uname()[1]))
 logger.warning("Parameters: BATCH_SIZE: {}, NN_IMAGE_SIZE: {}, BASE_CHANNELS: {}".format(
     BATCH_SIZE, NN_IMAGE_SIZE, BASE_CHANNELS))
+if sys.argv[1]:
+    logger.warning("Starting checkpoint file: {}".format(sys.argv[1]))
+logger.warning("Checkpoint file: {}".format(ckpt_filename))
 
 
 def prepare_file_list(file):
@@ -62,7 +68,6 @@ def prepare_file_paths(file):
 
 
 class Trainer():
-    # TODO: data augmentation
     def prepare_queues(self):
         train_paths = prepare_file_paths(TRAINING_SET)
         val_paths = prepare_file_paths(VALIDATION_SET)
@@ -185,6 +190,7 @@ class Trainer():
                 mean_200 = np.mean(losses[-200:], axis=0)
                 logger.debug('Step {}: mean_loss(20): {} mean_loss(200): {}'.format(step_idx, mean_20, mean_200))
     
+
     def run_train_epoch(self):
         steps = TRAINING_SET_SIZE // BATCH_SIZE + 1
         losses = []
@@ -199,6 +205,11 @@ class Trainer():
         logger.info("Validation set loss: {}".format(np.mean(losses, axis=0)))
 
 
+    def load_checkpoint(self):
+        if sys.argv[1]:
+            self.saver.restore(self.sess, sys.argv[1])
+
+
     def train(self):
         self.prepare_queues()
         self.create_model()
@@ -207,8 +218,12 @@ class Trainer():
         logger.info("Start training")
 
         with tf.Session() as self.sess:
+            self.saver = tf.train.Saver()
+            
             tf.global_variables_initializer().run()
             tf.local_variables_initializer().run()
+
+            self.load_checkpoint()
 
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord)
@@ -227,6 +242,7 @@ class Trainer():
             coord.request_stop()
             coord.join(threads)
 
+            self.saver.save(self.sess, ckpt_filename)
             self.sess.close()
 
 
