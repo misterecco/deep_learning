@@ -1,6 +1,8 @@
+import datetime
+import logging
 import tensorflow as tf
 import numpy as np
-import math
+import pathlib
 from ops.queues import create_batch_queue, IMAGE_SIZE
 from ops.basic import pixel_wise_softmax, loss_function, concat, relu
 from ops.complex import conv, max_pool, convout, bn_conv_relu, bn_upconv_relu
@@ -17,6 +19,24 @@ EPOCHS_N = 20
 NN_IMAGE_SIZE = 512
 BASE_CHANNELS = 8
 
+
+log_filename = datetime.datetime.utcnow().strftime("log/%Y-%m-%d_%H:%M.log")
+pathlib.Path(log_filename).touch()
+logger = logging.getLogger('u-net')
+logger.setLevel(logging.DEBUG)
+
+fh = logging.FileHandler(log_filename)
+fh.setLevel(logging.DEBUG)
+
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+
+logger.addHandler(fh)
+logger.addHandler(ch)
 
 
 def prepare_file_list(file):
@@ -158,26 +178,28 @@ class Trainer():
             if step_idx % 10 == 0:
                 mean_20 = np.mean(losses[-20:], axis=0)
                 mean_200 = np.mean(losses[-200:], axis=0)
-                print('Step {}: mean_loss(20): {} mean_loss(200): {}'.format(step_idx, mean_20, mean_200))
+                logger.info('Step {}: mean_loss(20): {} mean_loss(200): {}'.format(step_idx, mean_20, mean_200))
     
     def run_train_epoch(self):
         steps = TRAINING_SET_SIZE // BATCH_SIZE + 1
         losses = []
         self.run_epoch(self.train_on_batch, steps, losses)
-        print("End of epoch, validation set loss (whole epoch avg: {}".format(np.mean(losses, axis=0)))        
+        logger.info("End of epoch, training set loss (whole epoch avg: {}".format(np.mean(losses, axis=0)))        
 
 
     def run_validation_epoch(self):
         steps = VALIDATION_SET_SIZE // BATCH_SIZE + 1      
         losses = []  
         self.run_epoch(self.predict_batch, steps, losses)
-        print("Validation loss: {}".format(np.mean(losses, axis=0)))
+        logger.info("Validation loss: {}".format(np.mean(losses, axis=0)))
 
 
     def train(self):
         self.prepare_queues()
         self.create_model()
         self.create_validation_model()
+
+        logger.info("Start training")
 
         with tf.Session() as self.sess:
             tf.global_variables_initializer().run()
@@ -188,12 +210,12 @@ class Trainer():
 
             try:
                 for epoch_idx in range(EPOCHS_N):
-                    print("====== START OF EPOCH {} ======".format(epoch_idx))
+                    logger.info("====== START OF EPOCH {} ======".format(epoch_idx))
                     self.run_train_epoch()
                     self.run_validation_epoch()
                     
             except KeyboardInterrupt:
-                print('Stopping training -- keyboard interrupt')
+                logger.info('Stopping training -- keyboard interrupt')
 
             self.run_validation_epoch()
                 
