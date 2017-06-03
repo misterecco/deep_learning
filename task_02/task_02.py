@@ -14,9 +14,8 @@ VALIDATION_SET_SIZE = 530
 
 BATCH_SIZE = 8
 EPOCHS_N = 20
-STEPS = 10000
-NN_IMAGE_SIZE = 384
-BASE_CHANNELS = 16
+NN_IMAGE_SIZE = 512
+BASE_CHANNELS = 8
 
 
 
@@ -56,78 +55,60 @@ class Trainer():
 
         with tf.variable_scope("down-1"): # in: 512, out: 256
             skip_1 = signal = bn_conv_relu(signal, BASE_CHANNELS)
-            # signal = bn_conv_relu(signal, BASE_CHANNELS)
             signal = max_pool(signal)
 
         with tf.variable_scope("down-2"): # in: 256, out: 128
-            # signal = bn_conv_relu(signal, BASE_CHANNELS)
             skip_2 = signal = bn_conv_relu(signal, BASE_CHANNELS)
-            signal = bn_conv_relu(signal, BASE_CHANNELS, "bn_conv_relu_2")
             signal = max_pool(signal)
 
         with tf.variable_scope("down-3"): # in: 128, out: 64
-            # signal = bn_conv_relu(signal, BASE_CHANNELS)
             skip_3 = signal = bn_conv_relu(signal, BASE_CHANNELS)
-            signal = bn_conv_relu(signal, BASE_CHANNELS, "bn_conv_relu_2")
             signal = max_pool(signal)
 
         with tf.variable_scope("down-4"): # in: 64, out: 32
-            # signal = bn_conv_relu(signal, BASE_CHANNELS)
             skip_4 = signal = bn_conv_relu(signal, BASE_CHANNELS)
-            signal = bn_conv_relu(signal, BASE_CHANNELS, "bn_conv_relu_2")
             signal = max_pool(signal)
 
         with tf.variable_scope("down-5"): # in: 32, out: 16
-            # signal = bn_conv_relu(signal, BASE_CHANNELS)
             skip_5 = signal = bn_conv_relu(signal, BASE_CHANNELS)
-            signal = bn_conv_relu(signal, BASE_CHANNELS, "bn_conv_relu_2")
             signal = max_pool(signal)
 
         with tf.variable_scope("down-6"): # in: 16, out: 8
-            # signal = bn_conv_relu(signal, BASE_CHANNELS)
             skip_6 = signal = bn_conv_relu(signal, BASE_CHANNELS)
-            signal = bn_conv_relu(signal, BASE_CHANNELS, "bn_conv_relu_2")
             signal = max_pool(signal)
         
-        with tf.variable_scope("up-6"): # in: 8, out: 16
-            # signal = bn_conv_relu(signal, BASE_CHANNELS)
+        with tf.variable_scope("up-0"): # in: 8, out: 16
             signal = bn_conv_relu(signal, BASE_CHANNELS)
             signal = bn_upconv_relu(signal, BASE_CHANNELS)
 
-        with tf.variable_scope("up-5"): # in: 16, out: 32
+        with tf.variable_scope("up-6"): # in: 16, out: 32
             signal = concat(signal, skip_6)
-            # signal = bn_conv_relu(signal, BASE_CHANNELS * 3 // 2)
             signal = bn_conv_relu(signal, BASE_CHANNELS)
             signal = bn_upconv_relu(signal, BASE_CHANNELS)
 
-        with tf.variable_scope("up-4"): # in: 32, out: 64
+        with tf.variable_scope("up-5"): # in: 32, out: 64
             signal = concat(signal, skip_5)
-            # signal = bn_conv_relu(signal, BASE_CHANNELS * 3 // 2)
             signal = bn_conv_relu(signal, BASE_CHANNELS)
             signal = bn_upconv_relu(signal, BASE_CHANNELS)
 
-        with tf.variable_scope("up-3"): # in: 64, out: 128
+        with tf.variable_scope("up-4"): # in: 64, out: 128
             signal = concat(signal, skip_4)
-            # signal = bn_conv_relu(signal, BASE_CHANNELS * 3 // 2)
             signal = bn_conv_relu(signal, BASE_CHANNELS)
             signal = bn_upconv_relu(signal, BASE_CHANNELS)
 
-        with tf.variable_scope("up-2"): # in: 128, out: 256
+        with tf.variable_scope("up-3"): # in: 128, out: 256
             signal = concat(signal, skip_3)
-            # signal = bn_conv_relu(signal, BASE_CHANNELS * 3 // 2)
             signal = bn_conv_relu(signal, BASE_CHANNELS)
             signal = bn_upconv_relu(signal, BASE_CHANNELS)
 
-        with tf.variable_scope("up-1"): # in: 256, out: 512
+        with tf.variable_scope("up-2"): # in: 256, out: 512
             signal = concat(signal, skip_2)
-            # signal = bn_conv_relu(signal, BASE_CHANNELS * 3 // 2)
             signal = bn_conv_relu(signal, BASE_CHANNELS)
             signal = bn_upconv_relu(signal, BASE_CHANNELS)
 
-        with tf.variable_scope("out"): # in: 512, out: 512
+        with tf.variable_scope("up-1"): # in: 512, out: 512
             signal = concat(signal, skip_1)
-            # signal = bn_conv_relu(signal, BASE_CHANNELS * 3 // 2)
-            signal = bn_conv_relu(signal, BASE_CHANNELS)
+            signal = bn_conv_relu(signal, BASE_CHANNELS // 2)
             signal = convout(signal)
 
         signal = tf.image.resize_images(signal, [IMAGE_SIZE, IMAGE_SIZE])        
