@@ -47,8 +47,10 @@ def deconv_2d(signal, size, stride, out_channels):
     shape = signal.get_shape()
     in_channels = int(shape[3])
     ft = weight_variable([size, size, in_channels, out_channels], stddev=0.5)
+    out_shape = tf.stack([shape[0], shape[1]*2, shape[2]*2, out_channels])
 
-    return tf.nn.conv2d_transpose(signal, filter=ft, strides=[1, stride, stride, 1],
+    return tf.nn.conv2d_transpose(signal, filter=ft, output_shape=out_shape, 
+                                  strides=[1, stride, stride, 1],
                                   padding="SAME", data_format="NHWC")
 
 
@@ -67,5 +69,20 @@ def pixel_wise_softmax(signal):
     return tf.div(exp_map, sum_exp)
 
 
+def cross_entropy(signal, ground_truth):
+    # eps = 1e-8
+    # return -tf.reduce_sum(ground_truth * tf.log(tf.clip_by_value(signal, eps, 1.0-eps)), 
+    #                       axis=1)
+    return tf.nn.softmax_cross_entropy_with_logits(logits=signal, labels=ground_truth)
+
+
+def pixel_wise_cross_entropy(signal, ground_truth):
+    num_class = signal.get_shape().as_list()[-1]
+    signal_reshaped = tf.reshape(signal, shape=[-1, num_class])
+    gt_reshaped = tf.reshape(ground_truth, shape=[-1, num_class])
+    cross_ent = cross_entropy(signal_reshaped, gt_reshaped)
+    return tf.reduce_mean(cross_ent)
+
+
 def loss_function(signal, ground_truth):
-    return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=signal, labels=ground_truth))
+    return pixel_wise_cross_entropy(signal, ground_truth)
