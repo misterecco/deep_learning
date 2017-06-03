@@ -3,6 +3,7 @@ import logging
 import tensorflow as tf
 import numpy as np
 import pathlib
+import os
 from ops.queues import create_batch_queue, IMAGE_SIZE
 from ops.basic import pixel_wise_softmax, loss_function, concat, relu
 from ops.complex import conv, max_pool, convout, bn_conv_relu, bn_upconv_relu
@@ -37,6 +38,10 @@ ch.setFormatter(formatter)
 
 logger.addHandler(fh)
 logger.addHandler(ch)
+
+logger.warning("Nodename: {}".format(os.uname()[1]))
+logger.warning("Parameters: BATCH_SIZE: {}, NN_IMAGE_SIZE: {}, BASE_CHANNELS: {}".format(
+    BATCH_SIZE, NN_IMAGE_SIZE, BASE_CHANNELS))
 
 
 def prepare_file_list(file):
@@ -150,7 +155,7 @@ class Trainer():
 
     def create_validation_model(self):
         signal = self.val_image_batches[0]
-        ground_truth = self.train_image_batches[1]
+        ground_truth = self.val_image_batches[1]
 
         signal = self.u_net(signal)
 
@@ -178,20 +183,20 @@ class Trainer():
             if step_idx % 10 == 0:
                 mean_20 = np.mean(losses[-20:], axis=0)
                 mean_200 = np.mean(losses[-200:], axis=0)
-                logger.info('Step {}: mean_loss(20): {} mean_loss(200): {}'.format(step_idx, mean_20, mean_200))
+                logger.debug('Step {}: mean_loss(20): {} mean_loss(200): {}'.format(step_idx, mean_20, mean_200))
     
     def run_train_epoch(self):
         steps = TRAINING_SET_SIZE // BATCH_SIZE + 1
         losses = []
         self.run_epoch(self.train_on_batch, steps, losses)
-        logger.info("End of epoch, training set loss (whole epoch avg: {}".format(np.mean(losses, axis=0)))        
+        logger.info("End of epoch, training set loss (whole epoch avg): {}".format(np.mean(losses, axis=0)))        
 
 
     def run_validation_epoch(self):
         steps = VALIDATION_SET_SIZE // BATCH_SIZE + 1      
         losses = []  
         self.run_epoch(self.predict_batch, steps, losses)
-        logger.info("Validation loss: {}".format(np.mean(losses, axis=0)))
+        logger.info("Validation set loss: {}".format(np.mean(losses, axis=0)))
 
 
     def train(self):
