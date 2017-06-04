@@ -22,12 +22,11 @@ def max_pool(signal, variable_scope="max_pool"):
         return max_pool_2d(signal, 2, 2)
 
 
-def bn_conv_relu(signal, out_channels, variable_scope="bn_conv_relu"):
+def bn_conv_relu(signal, out_channels, training, variable_scope="bn_conv_relu"):
     with tf.variable_scope(variable_scope):
-        return relu(conv(batch_norm(signal), out_channels))
+        return relu(conv(batch_norm(signal, training), out_channels))
 
 
-def bn_upconv_relu(signal, out_channels, variable_scope="bn_upconv_relu"):
-    with tf.variable_scope(variable_scope):    
-        return relu(upconv(batch_norm(signal), out_channels))
-    
+def bn_upconv_relu(signal, out_channels, training, variable_scope="bn_upconv_relu"):
+    with tf.variable_scope(variable_scope):
+        return relu(upconv(batch_norm(signal, training), out_channels))

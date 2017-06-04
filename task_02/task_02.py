@@ -7,8 +7,8 @@ import os
 import sys
 import math
 from ops.queues import create_batch_queue, IMAGE_SIZE
-from ops.basic import (pixel_wise_softmax, loss_function, concat, 
-                       relu, randomly_flip_images, randomly_flip_files, horizontal_flip,
+from ops.basic import (loss_function, concat,
+                       relu, randomly_flip_files, horizontal_flip,
                        vertical_flip, transpose, average)
 from ops.complex import conv, max_pool, convout, bn_conv_relu, bn_upconv_relu
 
@@ -76,125 +76,132 @@ class Trainer():
         train_paths = prepare_file_paths(TRAINING_SET)
         val_paths = prepare_file_paths(VALIDATION_SET)
 
-        self.train_image_batches = create_batch_queue(train_paths, 
+        self.train_image_batches = create_batch_queue(train_paths,
                                    batch_size=BATCH_SIZE, augment=randomly_flip_files)
-        self.val_image_batches = create_batch_queue(val_paths, 
+        self.val_image_batches = create_batch_queue(val_paths,
                                  batch_size=BATCH_SIZE)
 
 
-    def create_nn(self, signal):
+    def create_nn(self, signal, training=True):
         signal = tf.image.resize_images(signal, [NN_IMAGE_SIZE, NN_IMAGE_SIZE])
-        
+
         with tf.variable_scope("in"):
             signal = conv(signal, BASE_CHANNELS)
             signal = relu(signal)
 
         with tf.variable_scope("down-1"): # in: 512, out: 256
-            skip_1 = signal = bn_conv_relu(signal, BASE_CHANNELS)
+            skip_1 = signal = bn_conv_relu(signal, BASE_CHANNELS, training)
             signal = max_pool(signal)
 
         with tf.variable_scope("down-2"): # in: 256, out: 128
-            skip_2 = signal = bn_conv_relu(signal, BASE_CHANNELS)
+            skip_2 = signal = bn_conv_relu(signal, BASE_CHANNELS, training)
             signal = max_pool(signal)
 
         with tf.variable_scope("down-3"): # in: 128, out: 64
-            skip_3 = signal = bn_conv_relu(signal, BASE_CHANNELS)
+            skip_3 = signal = bn_conv_relu(signal, BASE_CHANNELS, training)
             signal = max_pool(signal)
 
         with tf.variable_scope("down-4"): # in: 64, out: 32
-            skip_4 = signal = bn_conv_relu(signal, BASE_CHANNELS)
+            skip_4 = signal = bn_conv_relu(signal, BASE_CHANNELS, training)
             signal = max_pool(signal)
 
         with tf.variable_scope("down-5"): # in: 32, out: 16
-            skip_5 = signal = bn_conv_relu(signal, BASE_CHANNELS)
+            skip_5 = signal = bn_conv_relu(signal, BASE_CHANNELS, training)
             signal = max_pool(signal)
 
         with tf.variable_scope("down-6"): # in: 16, out: 8
-            skip_6 = signal = bn_conv_relu(signal, BASE_CHANNELS)
+            skip_6 = signal = bn_conv_relu(signal, BASE_CHANNELS, training)
             signal = max_pool(signal)
-        
+
         with tf.variable_scope("up-0"): # in: 8, out: 16
-            signal = bn_conv_relu(signal, BASE_CHANNELS)
-            signal = bn_upconv_relu(signal, BASE_CHANNELS)
+            signal = bn_conv_relu(signal, BASE_CHANNELS, training)
+            signal = bn_upconv_relu(signal, BASE_CHANNELS, training)
 
         with tf.variable_scope("up-6"): # in: 16, out: 32
             signal = concat(signal, skip_6)
-            signal = bn_conv_relu(signal, BASE_CHANNELS)
-            signal = bn_upconv_relu(signal, BASE_CHANNELS)
+            signal = bn_conv_relu(signal, BASE_CHANNELS, training)
+            signal = bn_upconv_relu(signal, BASE_CHANNELS, training)
 
         with tf.variable_scope("up-5"): # in: 32, out: 64
             signal = concat(signal, skip_5)
-            signal = bn_conv_relu(signal, BASE_CHANNELS)
-            signal = bn_upconv_relu(signal, BASE_CHANNELS)
+            signal = bn_conv_relu(signal, BASE_CHANNELS, training)
+            signal = bn_upconv_relu(signal, BASE_CHANNELS, training)
 
         with tf.variable_scope("up-4"): # in: 64, out: 128
             signal = concat(signal, skip_4)
-            signal = bn_conv_relu(signal, BASE_CHANNELS)
-            signal = bn_upconv_relu(signal, BASE_CHANNELS)
+            signal = bn_conv_relu(signal, BASE_CHANNELS, training)
+            signal = bn_upconv_relu(signal, BASE_CHANNELS, training)
 
         with tf.variable_scope("up-3"): # in: 128, out: 256
             signal = concat(signal, skip_3)
-            signal = bn_conv_relu(signal, BASE_CHANNELS)
-            signal = bn_upconv_relu(signal, BASE_CHANNELS)
+            signal = bn_conv_relu(signal, BASE_CHANNELS, training)
+            signal = bn_upconv_relu(signal, BASE_CHANNELS, training)
 
         with tf.variable_scope("up-2"): # in: 256, out: 512
             signal = concat(signal, skip_2)
-            signal = bn_conv_relu(signal, BASE_CHANNELS)
-            signal = bn_upconv_relu(signal, BASE_CHANNELS)
+            signal = bn_conv_relu(signal, BASE_CHANNELS, training)
+            signal = bn_upconv_relu(signal, BASE_CHANNELS, training)
 
         with tf.variable_scope("up-1"): # in: 512, out: 512
             signal = concat(signal, skip_1)
-            signal = bn_conv_relu(signal, BASE_CHANNELS)
+            signal = bn_conv_relu(signal, BASE_CHANNELS, training)
             signal = convout(signal)
 
-        signal = tf.image.resize_images(signal, [IMAGE_SIZE, IMAGE_SIZE])        
-        
+        signal = tf.image.resize_images(signal, [IMAGE_SIZE, IMAGE_SIZE])
+
         return signal
 
 
     def create_model(self):
-        signal = self.train_image_batches[0]
-        ground_truth = self.train_image_batches[1]
+        with tf.variable_scope('model') as self.vs:
+            signal = self.train_image_batches[0]
+            ground_truth = self.train_image_batches[1]
 
-        self.u_net = tf.make_template('u_net', self.create_nn)
+            self.u_net = tf.make_template('u_net', self.create_nn, training=True)
 
-        signal = self.u_net(signal)
+            signal = self.u_net(signal)
 
-        self.loss = loss_function(signal, ground_truth)
-        self.train_step = tf.train.AdamOptimizer().minimize(self.loss)
+            self.loss = loss_function(signal, ground_truth)
+
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+
+            with tf.control_dependencies(update_ops):
+                self.train_step = tf.train.AdamOptimizer().minimize(self.loss)
 
 
     def create_validation_model(self):
-        signal = self.val_image_batches[0]
-        ground_truth = self.val_image_batches[1]
+        with tf.variable_scope(self.vs, reuse=True):
+            signal = self.val_image_batches[0]
+            ground_truth = self.val_image_batches[1]
 
-        s1 = horizontal_flip(signal)
-        s2 = vertical_flip(signal)
-        s3 = transpose(signal)
+            self.u_net_train = tf.make_template('u_net', self.create_nn, training=False)
 
-        signal = self.u_net(signal)
-        s1 = self.u_net(s1)
-        s2 = self.u_net(s2)
-        s3 = self.u_net(s3)
+            s1 = horizontal_flip(signal)
+            s2 = vertical_flip(signal)
+            s3 = transpose(signal)
 
-        s1 = horizontal_flip(s1)
-        s2 = vertical_flip(s2)
-        s3 = transpose(s3)
-        
-        signal = average([signal, s1, s2, s3])
+            signal = self.u_net_train(signal)
+            s1 = self.u_net_train(s1)
+            s2 = self.u_net_train(s2)
+            s3 = self.u_net_train(s3)
 
-        self.loss_val = loss_function(signal, ground_truth)
-        self.out_val = pixel_wise_softmax(signal)
+            s1 = horizontal_flip(s1)
+            s2 = vertical_flip(s2)
+            s3 = transpose(s3)
+
+            signal = average([signal, s1, s2, s3])
+
+            self.loss_val = loss_function(signal, ground_truth)
 
 
     def train_on_batch(self):
         results = self.sess.run([self.loss, self.train_step])
 
-        return results[0] 
+        return results[0]
 
 
     def predict_batch(self):
-        results = self.sess.run([self.loss_val, self.out_val])
+        results = self.sess.run([self.loss_val])
 
         return results[0]
 
@@ -208,13 +215,13 @@ class Trainer():
                 mean_20 = np.mean(losses[-20:], axis=0)
                 mean_200 = np.mean(losses[-200:], axis=0)
                 logger.debug('Step {}: mean_loss(20): {} mean_loss(200): {}'.format(step_idx, mean_20, mean_200))
-    
+
 
     def run_train_epoch(self):
         steps = math.ceil(TRAINING_SET_SIZE / BATCH_SIZE)
         losses = []
         self.run_epoch(self.train_on_batch, steps, losses)
-        logger.info("End of epoch, training set loss (whole epoch avg): {}".format(np.mean(losses, axis=0)))        
+        logger.info("End of epoch, training set loss (whole epoch avg): {}".format(np.mean(losses, axis=0)))
 
 
     def run_validation_epoch(self):
@@ -238,7 +245,7 @@ class Trainer():
 
         with tf.Session() as self.sess:
             self.saver = tf.train.Saver()
-            
+
             tf.global_variables_initializer().run()
             tf.local_variables_initializer().run()
 
@@ -248,16 +255,20 @@ class Trainer():
             threads = tf.train.start_queue_runners(coord=coord)
 
             try:
-                for epoch_idx in range(EPOCHS_N):
+                epochs = EPOCHS_N
+                if len(sys.argv) > 2 and sys.argv[2] == '--skip-training':
+                    epochs = 0
+                for epoch_idx in range(epochs):
                     logger.info("====== START OF EPOCH {} ======".format(epoch_idx))
                     self.run_train_epoch()
                     self.run_validation_epoch()
-                    
+
             except KeyboardInterrupt:
                 logger.info('Stopping training -- keyboard interrupt')
 
+            logger.info("Final predictions")
             self.run_validation_epoch()
-                
+
             coord.request_stop()
             coord.join(threads)
 

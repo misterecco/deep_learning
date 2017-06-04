@@ -16,22 +16,32 @@ def relu(signal):
     return tf.nn.relu(signal)
 
 
-def batch_norm(signal):
+def batch_norm(signal, training):
     shape = signal.get_shape()
-    size = shape[3] if len(shape) >= 4 else 1
-    axis = [0, 1, 2] if len(shape) >= 4 else [0, 1]
+    size = shape[-1]
+    axis = [0, 1, 2]
+    eps = 0.0001
+    momentum = 0.99
 
-    beta = tf.get_variable('beta', initializer=tf.ones([size]), dtype=tf.float32)
-    gamma = tf.get_variable('gamma', initializer=tf.zeros([size]), dtype=tf.float32)
+    beta = tf.get_variable('beta', initializer=tf.zeros([size]), dtype=tf.float32)
+    gamma = tf.get_variable('gamma', initializer=tf.ones([size]), dtype=tf.float32)
 
-    eps = 0.00001
-    mean = tf.reduce_mean(signal, axis=axis)
-    devs_squared = tf.square(signal - mean)
-    var = tf.reduce_mean(devs_squared)
-    std = tf.sqrt(var + eps)
-    x_norm = (signal - mean) / std
+    moving_mean = tf.get_variable('moving_mean', initializer=tf.zeros(shape[1:]), dtype=tf.float32)
+    moving_variance = tf.get_variable('moving_variance', initializer=tf.ones(shape[1:]), dtype=tf.float32)
 
-    return x_norm * beta + gamma
+    if training:
+        mean = tf.reduce_mean(signal, axis=axis)
+        devs_squared = tf.square(signal - mean)
+        variance = tf.reduce_mean(devs_squared)
+
+        tf.add_to_collection(tf.GraphKeys.UPDATE_OPS,
+            moving_mean.assign(moving_mean * momentum + (1. - momentum) * mean))
+        tf.add_to_collection(tf.GraphKeys.UPDATE_OPS,
+            moving_variance.assign(moving_variance * momentum + (1. - momentum) * variance))
+
+        return tf.nn.batch_normalization(signal, mean, variance, beta, gamma, eps)
+
+    return tf.nn.batch_normalization(signal, moving_mean, moving_variance, beta, gamma, eps)
 
 
 def conv_2d(signal, size, stride, out_channels):
@@ -49,7 +59,7 @@ def deconv_2d(signal, size, stride, out_channels):
     ft = weight_variable([size, size, in_channels, out_channels], stddev=0.5)
     out_shape = tf.stack([shape[0], shape[1]*2, shape[2]*2, out_channels])
 
-    return tf.nn.conv2d_transpose(signal, filter=ft, output_shape=out_shape, 
+    return tf.nn.conv2d_transpose(signal, filter=ft, output_shape=out_shape,
                                   strides=[1, stride, stride, 1],
                                   padding="SAME", data_format="NHWC")
 
@@ -86,14 +96,14 @@ def loss_function(signal, ground_truth):
 
 
 def cond_horizontal_flip(signal, cond):
-    return tf.cond(cond, 
-                   lambda: tf.reverse(signal, axis=[0]), 
+    return tf.cond(cond,
+                   lambda: tf.reverse(signal, axis=[0]),
                    lambda: tf.identity(signal))
 
 
 def cond_vertical_flip(signal, cond):
-    return tf.cond(cond, 
-                   lambda: tf.reverse(signal, axis=[1]), 
+    return tf.cond(cond,
+                   lambda: tf.reverse(signal, axis=[1]),
                    lambda: tf.identity(signal))
 
 
@@ -107,20 +117,6 @@ def randomly_flip_files(files):
 
     v_flip = random_boolean()
     return [cond_vertical_flip(file, v_flip) for file in tmp]
-
-
-def randomly_flip_images(img_1, img_2):
-    raise Exception("Do not use this now")
-    
-    h_flip = random_boolean()
-    res_1 = cond_horizontal_flip(img_1, h_flip)
-    res_2 = cond_horizontal_flip(img_2, h_flip)
-
-    v_flip = random_boolean()
-    res_1 = cond_horizontal_flip(res_1, v_flip)
-    res_2 = cond_horizontal_flip(res_2, v_flip)
-
-    return res_1, res_2
 
 
 def horizontal_flip(signal):
