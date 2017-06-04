@@ -89,22 +89,36 @@ def loss_function(signal, ground_truth):
 
 def cond_horizontal_flip(signal, cond):
     return tf.cond(cond, 
-                   lambda: tf.reverse(signal, axis=[1]), 
+                   lambda: tf.reverse(signal, axis=[0]), 
                    lambda: tf.identity(signal))
 
 
 def cond_vertical_flip(signal, cond):
     return tf.cond(cond, 
-                   lambda: tf.reverse(signal, axis=[2]), 
+                   lambda: tf.reverse(signal, axis=[1]), 
                    lambda: tf.identity(signal))
 
 
+def random_boolean():
+    return tf.less(tf.random_uniform([], 0, 1.0), 0.5)
+
+
+def randomly_flip_files(files):
+    h_flip = random_boolean()
+    tmp = [cond_horizontal_flip(file, h_flip) for file in files]
+
+    v_flip = random_boolean()
+    return [cond_vertical_flip(file, v_flip) for file in tmp]
+
+
 def randomly_flip_images(img_1, img_2):
-    h_flip = tf.less(tf.random_uniform([], 0, 1.0), 0.5)
+    raise Exception("Do not use this now")
+    
+    h_flip = random_boolean()
     res_1 = cond_horizontal_flip(img_1, h_flip)
     res_2 = cond_horizontal_flip(img_2, h_flip)
 
-    v_flip = tf.less(tf.random_uniform([], 0, 1.0), 0.5)
+    v_flip = random_boolean()
     res_1 = cond_horizontal_flip(res_1, v_flip)
     res_2 = cond_horizontal_flip(res_2, v_flip)
 

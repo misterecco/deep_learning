@@ -7,7 +7,7 @@ import os
 import sys
 from ops.queues import create_batch_queue, IMAGE_SIZE
 from ops.basic import (pixel_wise_softmax, loss_function, concat, 
-                       relu, randomly_flip_images, horizontal_flip,
+                       relu, randomly_flip_images, randomly_flip_files, horizontal_flip,
                        vertical_flip, transpose, average)
 from ops.complex import conv, max_pool, convout, bn_conv_relu, bn_upconv_relu
 
@@ -76,8 +76,10 @@ class Trainer():
         train_paths = prepare_file_paths(TRAINING_SET)
         val_paths = prepare_file_paths(VALIDATION_SET)
 
-        self.train_image_batches = create_batch_queue(train_paths, batch_size=BATCH_SIZE)
-        self.val_image_batches = create_batch_queue(val_paths, batch_size=VAL_BATCH_SIZE)
+        self.train_image_batches = create_batch_queue(train_paths, 
+                                   batch_size=BATCH_SIZE, augment=randomly_flip_files)
+        self.val_image_batches = create_batch_queue(val_paths, 
+                                 batch_size=VAL_BATCH_SIZE)
 
 
     def create_nn(self, signal):
@@ -154,7 +156,7 @@ class Trainer():
         signal = self.train_image_batches[0]
         ground_truth = self.train_image_batches[1]
 
-        signal, ground_truth = randomly_flip_images(signal, ground_truth)
+        # signal, ground_truth = randomly_flip_images(signal, ground_truth)
 
         self.u_net = tf.make_template('u_net', self.create_nn)
 
