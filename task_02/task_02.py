@@ -5,6 +5,7 @@ import numpy as np
 import pathlib
 import os
 import sys
+import math
 from ops.queues import create_batch_queue, IMAGE_SIZE
 from ops.basic import (pixel_wise_softmax, loss_function, concat, 
                        relu, randomly_flip_images, randomly_flip_files, horizontal_flip,
@@ -15,14 +16,13 @@ from ops.complex import conv, max_pool, convout, bn_conv_relu, bn_upconv_relu
 DATASET_PATH = './spacenet2'
 TRAINING_SET = 'training_set.txt'
 VALIDATION_SET = 'validation_set.txt'
-TRAINING_SET_SIZE = 10063
-VALIDATION_SET_SIZE = 530
+TRAINING_SET_SIZE = 10081
+VALIDATION_SET_SIZE = 512
 
 BATCH_SIZE = 8
-VAL_BATCH_SIZE = 1
-EPOCHS_N = 20
+EPOCHS_N = 12
 NN_IMAGE_SIZE = 512
-BASE_CHANNELS = 8
+BASE_CHANNELS = 32
 
 date_string = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H:%M")
 log_filename = "log/{}.log".format(date_string)
@@ -79,7 +79,7 @@ class Trainer():
         self.train_image_batches = create_batch_queue(train_paths, 
                                    batch_size=BATCH_SIZE, augment=randomly_flip_files)
         self.val_image_batches = create_batch_queue(val_paths, 
-                                 batch_size=VAL_BATCH_SIZE)
+                                 batch_size=BATCH_SIZE)
 
 
     def create_nn(self, signal):
@@ -144,7 +144,7 @@ class Trainer():
 
         with tf.variable_scope("up-1"): # in: 512, out: 512
             signal = concat(signal, skip_1)
-            signal = bn_conv_relu(signal, BASE_CHANNELS // 2)
+            signal = bn_conv_relu(signal, BASE_CHANNELS)
             signal = convout(signal)
 
         signal = tf.image.resize_images(signal, [IMAGE_SIZE, IMAGE_SIZE])        
@@ -155,8 +155,6 @@ class Trainer():
     def create_model(self):
         signal = self.train_image_batches[0]
         ground_truth = self.train_image_batches[1]
-
-        # signal, ground_truth = randomly_flip_images(signal, ground_truth)
 
         self.u_net = tf.make_template('u_net', self.create_nn)
 
@@ -213,15 +211,15 @@ class Trainer():
     
 
     def run_train_epoch(self):
-        steps = TRAINING_SET_SIZE // BATCH_SIZE + 1
+        steps = math.ceil(TRAINING_SET_SIZE / BATCH_SIZE)
         losses = []
         self.run_epoch(self.train_on_batch, steps, losses)
         logger.info("End of epoch, training set loss (whole epoch avg): {}".format(np.mean(losses, axis=0)))        
 
 
     def run_validation_epoch(self):
-        steps = VALIDATION_SET_SIZE // VAL_BATCH_SIZE    
-        losses = []  
+        steps = VALIDATION_SET_SIZE // BATCH_SIZE
+        losses = []
         self.run_epoch(self.predict_batch, steps, losses)
         logger.info("Validation set loss: {}".format(np.mean(losses, axis=0)))
 
