@@ -13,7 +13,7 @@ from ops.basic import (loss_function, concat,
 from ops.complex import conv, max_pool, convout, bn_conv_relu, bn_upconv_relu
 
 
-DATASET_PATH = './spacenet2'
+DATASET_PATH = '/data/spacenet2'
 TRAINING_SET = 'training_set.txt'
 VALIDATION_SET = 'validation_set.txt'
 TRAINING_SET_SIZE = 10081
