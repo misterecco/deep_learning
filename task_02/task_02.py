@@ -9,7 +9,7 @@ import math
 from ops.queues import create_batch_queue, IMAGE_SIZE
 from ops.basic import (loss_function, concat,
                        relu, randomly_flip_files, horizontal_flip,
-                       vertical_flip, transpose, average)
+                       vertical_flip, double_flip, average)
 from ops.complex import conv, max_pool, convout, bn_conv_relu, bn_upconv_relu
 
 
@@ -178,7 +178,7 @@ class Trainer():
 
             s1 = horizontal_flip(signal)
             s2 = vertical_flip(signal)
-            s3 = transpose(signal)
+            s3 = double_flip(signal)
 
             signal = self.u_net_train(signal)
             s1 = self.u_net_train(s1)
@@ -187,7 +187,7 @@ class Trainer():
 
             s1 = horizontal_flip(s1)
             s2 = vertical_flip(s2)
-            s3 = transpose(s3)
+            s3 = double_flip(s3)
 
             signal = average([signal, s1, s2, s3])
 
@@ -256,7 +256,7 @@ class Trainer():
 
             try:
                 epochs = EPOCHS_N
-                if len(sys.argv) > 2 and sys.argv[2] == '--skip-training':
+                if '--skip-training' in sys.argv:
                     epochs = 0
                 for epoch_idx in range(epochs):
                     logger.info("====== START OF EPOCH {} ======".format(epoch_idx))
@@ -272,7 +272,9 @@ class Trainer():
             coord.request_stop()
             coord.join(threads)
 
-            self.saver.save(self.sess, ckpt_filename)
+            if not '--skip-training' in sys.argv:
+                self.saver.save(self.sess, ckpt_filename)
+
             self.sess.close()
 
 

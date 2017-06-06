@@ -127,7 +127,7 @@ def vertical_flip(signal):
     return tf.reverse(signal, axis=[2])
 
 
-def transpose(signal):
+def double_flip(signal):
     return tf.reverse(signal, axis=[1,2])
 
 
