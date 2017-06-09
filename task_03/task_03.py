@@ -3,7 +3,7 @@ import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
 import os
 
-from ops import rnn, reshape, loss_function, accuracy, fully_connected
+from ops import rnn, lstm, reshape, loss_function, accuracy, fully_connected
 
 
 ''''
@@ -37,7 +37,7 @@ class MnistTrainer(object):
 
         signal = self.x
         signal = tf.reshape(signal, [-1, steps_n, input_n])
-        signal = rnn(signal, steps_n, input_n, input_n)
+        signal = lstm(signal, steps_n, input_n, input_n)
 
         signal = fully_connected(signal, 10)
 
