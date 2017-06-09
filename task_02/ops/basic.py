@@ -133,4 +133,5 @@ def double_flip(signal):
 
 def average(signals):
     stack = tf.stack(signals)
-    return tf.reduce_mean(stack, axis=0, keep_dims=True)
+    avg = tf.reduce_mean(stack, axis=0, keep_dims=True)
+    return tf.squeeze(avg, squeeze_dims=[0])

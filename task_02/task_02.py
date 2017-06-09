@@ -27,6 +27,7 @@ BASE_CHANNELS = 32
 date_string = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H:%M")
 log_filename = "log/{}.log".format(date_string)
 ckpt_filename = "checkpoints/{}.ckpt".format(date_string)
+summary_path = "out/{}".format(date_string)
 
 pathlib.Path(log_filename).touch()
 logger = logging.getLogger('u-net')
@@ -171,7 +172,7 @@ class Trainer():
 
     def create_validation_model(self):
         with tf.variable_scope(self.vs, reuse=True):
-            signal = self.val_image_batches[0]
+            signal = original = self.val_image_batches[0]
             ground_truth = self.val_image_batches[1]
 
             self.u_net_train = tf.make_template('u_net', self.create_nn, training=False)
@@ -193,6 +194,15 @@ class Trainer():
 
             self.loss_val = loss_function(signal, ground_truth)
 
+            out = tf.sigmoid(signal)
+            out = out * 255
+
+            out_sum = tf.summary.image('out', signal, max_outputs=16)
+            img_sum = tf.summary.image('image', original, max_outputs=16)
+            gt_sum  = tf.summary.image('ground_truth', ground_truth, max_outputs=16)
+
+            self.summaries = tf.summary.merge([out_sum, img_sum, gt_sum])
+
 
     def train_on_batch(self):
         results = self.sess.run([self.loss, self.train_step])
@@ -202,6 +212,15 @@ class Trainer():
 
     def predict_batch(self):
         results = self.sess.run([self.loss_val])
+
+        return results[0]
+
+
+    def predict_batch_with_summaries(self):
+        results = self.sess.run([self.loss_val, self.summaries])
+
+        self.writer.add_summary(results[1], 0)
+        self.writer.flush()
 
         return results[0]
 
@@ -231,6 +250,13 @@ class Trainer():
         logger.info("Validation set loss: {}".format(np.mean(losses, axis=0)))
 
 
+    def run_predictions(self):
+        steps = VALIDATION_SET_SIZE // BATCH_SIZE
+        losses = []
+        self.run_epoch(self.predict_batch_with_summaries, steps, losses)
+        logger.info("Validation set loss: {}".format(np.mean(losses, axis=0)))
+
+
     def load_checkpoint(self):
         if len(sys.argv) > 1:
             self.saver.restore(self.sess, sys.argv[1])
@@ -245,6 +271,7 @@ class Trainer():
 
         with tf.Session() as self.sess:
             self.saver = tf.train.Saver()
+            self.writer = tf.summary.FileWriter(summary_path, self.sess.graph)
 
             tf.global_variables_initializer().run()
             tf.local_variables_initializer().run()
@@ -267,7 +294,7 @@ class Trainer():
                 logger.info('Stopping training -- keyboard interrupt')
 
             logger.info("Final predictions")
-            self.run_validation_epoch()
+            self.run_predictions()
 
             coord.request_stop()
             coord.join(threads)
