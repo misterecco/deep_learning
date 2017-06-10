@@ -37,7 +37,6 @@ class MnistTrainer(object):
                                 feed_dict={self.x: batch_xs, self.y_target: batch_ys})
 
         # print(results[3])
-
         return results[:2]
 
 

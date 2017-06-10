@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-import math
+
 
 def weight_variable(shape, stddev=0.1, name='weight'):
     initializer = tf.truncated_normal(shape, stddev=stddev)
@@ -48,7 +48,6 @@ def augment(signal):
 
 
 def lstm(signal, hidden_n, input_n, forget_bias=1.0, name='lstm'):
-
     shape = tf.shape(signal)
     length = shape[-1] * shape[-2]
     steps_n = tf.to_int32(length // input_n)
@@ -64,15 +63,25 @@ def lstm(signal, hidden_n, input_n, forget_bias=1.0, name='lstm'):
         c_0 = bias_variable(shape=(1, hidden_n), name='c_0')
         h_0 = bias_variable(shape=(1, hidden_n), name='h_0')
 
+        test = bias_variable(shape=(1, hidden_n, 0), name='test')
+
     prev_c = tf.tile(c_0, [tf.shape(signal)[0], 1])
     prev_h = tf.tile(h_0, [tf.shape(signal)[0], 1])
 
+    tmp = tf.expand_dims(prev_c, 1)
+
+    c = tf.tile(tmp, [1, 0, 1])
+    h = tf.tile(tmp, [1, 0, 1])
+
+    # print(prev_h.get_shape())
+    # print(h.get_shape())
+
     i = tf.constant(0)
-    loop_var = [i, prev_c, prev_h]
+    loop_var = [i, prev_c, prev_h, c, h]
 
-    while_cond = lambda t, _pc, _ph: tf.less(t, steps_n)
+    while_cond = lambda t, _pc, _ph, _c, _h: tf.less(t, steps_n)
 
-    def body(t, pc, ph):
+    def body(t, pc, ph, c, h):
         signal_t = signal[:, tf.to_int32(t), :]
         input = tf.concat([signal_t, ph], axis=1)
 
@@ -85,12 +94,19 @@ def lstm(signal, hidden_n, input_n, forget_bias=1.0, name='lstm'):
         next_c = f * pc + i * g
         next_h = o * tf.tanh(next_c)
 
-        return (tf.add(t, 1), next_c, next_h)
+        nc = tf.concat([c, tf.expand_dims(next_c, 1)], 1)
+        nh = tf.concat([h, tf.expand_dims(next_h, 1)], 1)
 
-    r = tf.while_loop(while_cond, body, loop_var)
+        return (tf.add(t, 1), next_c, next_h, nc, nh)
 
-    return r[-1]
+    r = tf.while_loop(while_cond, body, loop_var,
+                       shape_invariants=[i.get_shape(),
+                       prev_c.get_shape(), prev_h.get_shape(),
+                       tf.TensorShape([None, None, 28]), tf.TensorShape([None, None, 28])])
 
+    # print(r[2].get_shape())
+
+    return r[2]
 
 
 def fully_connected(signal, out_size, name='fc'):
