@@ -49,8 +49,8 @@ def augment(signal):
 
 def lstm(signal, hidden_n, input_n, forget_bias=1.0, name='lstm'):
     shape = tf.shape(signal)
-    length = shape[-1] * shape[-2]
-    steps_n = tf.to_int32(length // input_n)
+    steps_n = tf.to_int32(shape[-2])
+    length = input_n * steps_n
 
     with tf.variable_scope(name):
         W = weight_variable(shape=(input_n + hidden_n, 4 * hidden_n), name='W')
@@ -72,9 +72,6 @@ def lstm(signal, hidden_n, input_n, forget_bias=1.0, name='lstm'):
 
     c = tf.tile(tmp, [1, 0, 1])
     h = tf.tile(tmp, [1, 0, 1])
-
-    # print(prev_h.get_shape())
-    # print(h.get_shape())
 
     i = tf.constant(0)
     loop_var = [i, prev_c, prev_h, c, h]
@@ -104,9 +101,7 @@ def lstm(signal, hidden_n, input_n, forget_bias=1.0, name='lstm'):
                        prev_c.get_shape(), prev_h.get_shape(),
                        tf.TensorShape([None, None, 28]), tf.TensorShape([None, None, 28])])
 
-    # print(r[2].get_shape())
-
-    return r[2]
+    return r[-1]
 
 
 def fully_connected(signal, out_size, name='fc'):
@@ -129,6 +124,12 @@ def loss_function(signal, labels):
     return tf.reduce_mean(cross_entropy)
 
 
-# TODO: refactor it to make it look nicer
+def get_last_row(signal):
+    shape = tf.shape(signal)
+    signal = tf.slice(signal, [0, tf.to_int32(shape[1]-1), 0], [-1, 1, -1])
+    return tf.squeeze(signal, axis=[1])
+
+
 def accuracy(signal, labels):
-    return tf.reduce_mean(tf.cast(tf.equal(tf.argmax(labels, axis=1), tf.argmax(signal, axis=1)), tf.float32))
+    bool_tensor = tf.equal(tf.argmax(labels, axis=1), tf.argmax(signal, axis=1))
+    return tf.reduce_mean(tf.cast(bool_tensor, tf.float32))

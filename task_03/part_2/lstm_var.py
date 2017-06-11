@@ -4,7 +4,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 import os
 import math
 
-from ops import lstm, reshape, loss_function, accuracy, fully_connected, augment
+from ops import (lstm, reshape, loss_function, accuracy, fully_connected, augment,
+                 get_last_row)
 
 
 class MnistTrainer(object):
@@ -21,9 +22,9 @@ class MnistTrainer(object):
 
         signal = augment(signal)
 
-        self.dim = tf.shape(signal)
-
         signal = lstm(signal, input_n, input_n)
+
+        signal = get_last_row(signal)
 
         signal = fully_connected(signal, 10)
 
@@ -33,10 +34,9 @@ class MnistTrainer(object):
 
 
     def train_on_batch(self, batch_xs, batch_ys):
-        results = self.sess.run([self.loss, self.accuracy, self.train_step, self.dim],
+        results = self.sess.run([self.loss, self.accuracy, self.train_step],
                                 feed_dict={self.x: batch_xs, self.y_target: batch_ys})
 
-        # print(results[3])
         return results[:2]
 
 
