@@ -7,7 +7,7 @@ import os
 import sys
 import math
 from ops.queues import create_batch_queue, IMAGE_SIZE
-from ops.basic import (loss_function, concat,
+from ops.basic import (loss_function, concat, pixel_wise_softmax,
                        relu, randomly_flip_files, horizontal_flip,
                        vertical_flip, double_flip, average)
 from ops.complex import conv, max_pool, convout, bn_conv_relu, bn_upconv_relu
@@ -166,8 +166,14 @@ class Trainer():
 
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
+            global_step = tf.get_variable('global_step', initializer=0)
+            starter_learning_rate = 0.001
+            learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step,
+                                                       TRAINING_SET_SIZE // BATCH_SIZE, 0.9)
+
             with tf.control_dependencies(update_ops):
-                self.train_step = tf.train.AdamOptimizer().minimize(self.loss)
+                self.train_step = tf.train.AdamOptimizer(learning_rate).minimize(
+                                              self.loss, global_step=global_step)
 
 
     def create_validation_model(self):
@@ -194,7 +200,7 @@ class Trainer():
 
             self.loss_val = loss_function(signal, ground_truth)
 
-            out = tf.sigmoid(signal)
+            out = pixel_wise_softmax(signal)
             out = out * 255
 
             out_sum = tf.summary.image('out', signal, max_outputs=16)

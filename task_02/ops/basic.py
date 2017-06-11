@@ -80,7 +80,7 @@ def pixel_wise_softmax(signal):
 
 
 def cross_entropy(signal, ground_truth):
-    return tf.nn.sigmoid_cross_entropy_with_logits(logits=signal, labels=ground_truth)
+    return tf.nn.softmax_cross_entropy_with_logits(logits=signal, labels=ground_truth)
 
 
 def pixel_wise_cross_entropy(signal, ground_truth):
