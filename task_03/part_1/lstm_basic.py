@@ -39,8 +39,8 @@ class MnistTrainer(object):
         mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
 
         with tf.Session() as self.sess:
-            tf.global_variables_initializer().run()  # initialize variables
-            batches_n = 100000
+            tf.global_variables_initializer().run()
+            batches_n = 25000
             mb_size = 128
 
             losses = []
