@@ -1,0 +1,7 @@
+2017-06-04 19:09:39,871 - WARNING - Nodename: titan-lab3
+2017-06-04 19:09:39,871 - WARNING - Parameters: BATCH_SIZE: 16, NN_IMAGE_SIZE: 512, BASE_CHANNELS: 16
+2017-06-04 19:09:39,871 - WARNING - Augmentation: horizontal and vertical flips
+2017-06-04 19:09:39,871 - WARNING - Checkpoint file: checkpoints/2017-06-04_17:09.ckpt
+2017-06-04 19:09:42,903 - INFO - Start training
+2017-06-04 19:09:46,235 - INFO - ====== START OF EPOCH 0 ======
+2017-06-04 19:09:49,567 - DEBUG - Step 0: mean_loss(20): 3.6573643684387207 mean_loss(200): 3.6573643684387207

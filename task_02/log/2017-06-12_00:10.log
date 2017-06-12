@@ -1,0 +1,10 @@
+2017-06-12 02:10:52,432 - WARNING - Nodename: titan-lab1
+2017-06-12 02:10:52,433 - WARNING - Parameters: BATCH_SIZE: 8, NN_IMAGE_SIZE: 512, BASE_CHANNELS: 32
+2017-06-12 02:10:52,433 - WARNING - Augmentation: horizontal and vertical flips
+2017-06-12 02:10:52,433 - WARNING - Starting checkpoint file: checkpoints/2017-06-04_23:10.ckpt
+2017-06-12 02:10:52,433 - WARNING - Checkpoint file: checkpoints/2017-06-12_00:10.ckpt
+2017-06-12 02:10:57,513 - WARNING - Nodename: titan-lab1
+2017-06-12 02:10:57,514 - WARNING - Parameters: BATCH_SIZE: 8, NN_IMAGE_SIZE: 512, BASE_CHANNELS: 32
+2017-06-12 02:10:57,514 - WARNING - Augmentation: horizontal and vertical flips
+2017-06-12 02:10:57,514 - WARNING - Starting checkpoint file: checkpoints/2017-06-04_23:10.ckpt
+2017-06-12 02:10:57,514 - WARNING - Checkpoint file: checkpoints/2017-06-12_00:10.ckpt

@@ -169,7 +169,7 @@ class Trainer():
             global_step = tf.get_variable('global_step', initializer=0)
             starter_learning_rate = 0.001
             learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step,
-                                                       TRAINING_SET_SIZE // BATCH_SIZE, 0.9)
+                                                       TRAINING_SET_SIZE // BATCH_SIZE, 0.8)
 
             with tf.control_dependencies(update_ops):
                 self.train_step = tf.train.AdamOptimizer(learning_rate).minimize(
@@ -200,10 +200,10 @@ class Trainer():
 
             self.loss_val = loss_function(signal, ground_truth)
 
-            out = pixel_wise_softmax(signal)
+            out = tf.nn.softmax(signal)
             out = out * 255
 
-            out_sum = tf.summary.image('out', signal, max_outputs=16)
+            out_sum = tf.summary.image('out', out, max_outputs=16)
             img_sum = tf.summary.image('image', original, max_outputs=16)
             gt_sum  = tf.summary.image('ground_truth', ground_truth, max_outputs=16)
 

@@ -1,0 +1,17 @@
+# Validation on network trained with sotfmax loss function
+
+2017-06-12 13:49:57,690 - WARNING - Nodename: titan-lab1
+2017-06-12 13:49:57,690 - WARNING - Parameters: BATCH_SIZE: 8, NN_IMAGE_SIZE: 512, BASE_CHANNELS: 32
+2017-06-12 13:49:57,690 - WARNING - Augmentation: horizontal and vertical flips
+2017-06-12 13:49:57,690 - WARNING - Starting checkpoint file: checkpoints/2017-06-12_08:21.ckpt
+2017-06-12 13:49:57,691 - WARNING - Checkpoint file: checkpoints/2017-06-12_11:49.ckpt
+2017-06-12 13:50:00,847 - INFO - Start training
+2017-06-12 13:50:05,061 - INFO - Final predictions
+2017-06-12 13:50:07,513 - DEBUG - Step 0: mean_loss(20): 0.31177473068237305 mean_loss(200): 0.31177473068237305
+2017-06-12 13:50:21,649 - DEBUG - Step 10: mean_loss(20): 0.2677358090877533 mean_loss(200): 0.2677358090877533
+2017-06-12 13:50:36,186 - DEBUG - Step 20: mean_loss(20): 0.25710469484329224 mean_loss(200): 0.2597080171108246
+2017-06-12 13:50:51,139 - DEBUG - Step 30: mean_loss(20): 0.2669947147369385 mean_loss(200): 0.2672576904296875
+2017-06-12 13:51:05,019 - DEBUG - Step 40: mean_loss(20): 0.29043644666671753 mean_loss(200): 0.274697482585907
+2017-06-12 13:51:20,080 - DEBUG - Step 50: mean_loss(20): 0.3200289309024811 mean_loss(200): 0.2879523038864136
+2017-06-12 13:51:34,572 - DEBUG - Step 60: mean_loss(20): 0.302925169467926 mean_loss(200): 0.2839524745941162
+2017-06-12 13:51:40,475 - INFO - Validation set loss: 0.28760337829589844

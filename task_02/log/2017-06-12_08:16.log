@@ -1,0 +1,17 @@
+# Validation with softmax loss function on weights from training on sigmoid
+
+2017-06-12 10:16:46,395 - WARNING - Nodename: titan-lab2
+2017-06-12 10:16:46,395 - WARNING - Parameters: BATCH_SIZE: 8, NN_IMAGE_SIZE: 512, BASE_CHANNELS: 32
+2017-06-12 10:16:46,395 - WARNING - Augmentation: horizontal and vertical flips
+2017-06-12 10:16:46,395 - WARNING - Starting checkpoint file: checkpoints/2017-06-04_23:10.ckpt
+2017-06-12 10:16:46,395 - WARNING - Checkpoint file: checkpoints/2017-06-12_08:16.ckpt
+2017-06-12 10:16:48,019 - INFO - Start training
+2017-06-12 10:16:52,721 - INFO - Final predictions
+2017-06-12 10:16:54,995 - DEBUG - Step 0: mean_loss(20): 0.16568724811077118 mean_loss(200): 0.16568724811077118
+2017-06-12 10:16:59,123 - DEBUG - Step 10: mean_loss(20): 0.21085713803768158 mean_loss(200): 0.21085713803768158
+2017-06-12 10:17:03,462 - DEBUG - Step 20: mean_loss(20): 0.22565174102783203 mean_loss(200): 0.22279630601406097
+2017-06-12 10:17:07,819 - DEBUG - Step 30: mean_loss(20): 0.2697616219520569 mean_loss(200): 0.24886003136634827
+2017-06-12 10:17:12,214 - DEBUG - Step 40: mean_loss(20): 0.2802615761756897 mean_loss(200): 0.2508281171321869
+2017-06-12 10:17:16,585 - DEBUG - Step 50: mean_loss(20): 0.23300155997276306 mean_loss(200): 0.24264101684093475
+2017-06-12 10:17:20,969 - DEBUG - Step 60: mean_loss(20): 0.24594227969646454 mean_loss(200): 0.24922619760036469
+2017-06-12 10:17:22,714 - INFO - Validation set loss: 0.24755701422691345

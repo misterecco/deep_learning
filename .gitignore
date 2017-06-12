@@ -1,4 +1,7 @@
 /venv*
 /task_02/spacenet2*
+/task_02/images*
+/task_02/tf_out*
+/task_02/out*
 .vscode
 *__pycache__*
