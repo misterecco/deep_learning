@@ -24,6 +24,8 @@ class MnistTrainer(object):
 
         signal = lstm(signal, input_n, input_n)
 
+        self.dim = tf.shape(signal)
+
         signal = get_last_row(signal)
 
         signal = fully_connected(signal, 10)
@@ -34,8 +36,10 @@ class MnistTrainer(object):
 
 
     def train_on_batch(self, batch_xs, batch_ys):
-        results = self.sess.run([self.loss, self.accuracy, self.train_step],
+        results = self.sess.run([self.loss, self.accuracy, self.train_step, self.dim],
                                 feed_dict={self.x: batch_xs, self.y_target: batch_ys})
+
+        # print(results[-1])
 
         return results[:2]
 
@@ -47,7 +51,7 @@ class MnistTrainer(object):
         with tf.Session() as self.sess:
             tf.global_variables_initializer().run()  # initialize variables
             batches_n = 100000
-            mb_size = 128
+            mb_size = 64
 
             losses = []
             try:

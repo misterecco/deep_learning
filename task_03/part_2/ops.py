@@ -12,13 +12,45 @@ def bias_variable(shape, bias=0., name='bias'):
     return tf.get_variable(name, initializer=initializer)
 
 
+# TODO: make 28 a parameter
 def random_crop(signal):
-    height = tf.random_uniform(shape=(), minval=24, maxval=28, dtype=tf.int32)
-    width = tf.random_uniform(shape=(), minval=24, maxval=28, dtype=tf.int32)
+    shape = tf.shape(signal)
+    mb_size = tf.to_int32(shape[0])
 
-    cropped = tf.slice(signal, [0, 0, 0], [-1, tf.to_int32(height), tf.to_int32(width)])
+    # heigth, width
+    dims = tf.random_uniform(shape=(mb_size, 2), minval=24, maxval=28, dtype=tf.int32)
+    lengths = tf.squeeze(tf.reduce_prod(dims, axis=1, keep_dims=True), axis=1)
+    max_len = tf.reduce_max(lengths)
+    padden_len = tf.cast(tf.ceil(max_len / 28), tf.int32) * 28
+    paddings = padden_len - lengths
+    steps_n = tf.ceil(lengths / 28)
 
-    return cropped
+    i = tf.constant(0)
+    ns_0 = tf.zeros([0, tf.to_int32(padden_len) // 28, 28])
+    while_cond = lambda i, _s: tf.less(i, mb_size)
+    loop_var = [i, ns_0]
+
+    def body(i, ns):
+        idx = tf.to_int32(i)
+        img = signal[idx, :, :]
+        pad = paddings[idx]
+        d = dims[idx, :]
+        height = tf.to_int32(d[0])
+        width = tf.to_int32(d[1])
+        img = tf.slice(img, [0,0], [height, width])
+        img = tf.reshape(img, [-1])
+        img = tf.pad(img, [[0, pad]])
+        img = tf.reshape(img, shape=[-1, 28])
+
+        next_ns = tf.concat([ns, tf.expand_dims(img, 0)], 0)
+
+        return (tf.add(i, 1), next_ns)
+
+    r = tf.while_loop(while_cond, body, loop_var,
+                      shape_invariants=[i.get_shape(), tf.TensorShape([None, None, 28])])
+
+    new_signal = r[-1]
+    return (new_signal, steps_n)
 
 
 def flatten(signal):
@@ -43,11 +75,13 @@ def pad(signal):
     return tf.reshape(padded, shape=[-1, tf.to_int32(height), width])
 
 
+# TODO: should return a tuple
 def augment(signal):
-    return pad(random_crop(signal))
+    return random_crop(signal)
 
 
-def lstm(signal, hidden_n, input_n, forget_bias=1.0, name='lstm'):
+def lstm(input, hidden_n, input_n, forget_bias=1.0, name='lstm'):
+    (signal, steps_n) = input
     shape = tf.shape(signal)
     steps_n = tf.to_int32(shape[-2])
     length = input_n * steps_n
@@ -62,8 +96,6 @@ def lstm(signal, hidden_n, input_n, forget_bias=1.0, name='lstm'):
 
         c_0 = bias_variable(shape=(1, hidden_n), name='c_0')
         h_0 = bias_variable(shape=(1, hidden_n), name='h_0')
-
-        test = bias_variable(shape=(1, hidden_n, 0), name='test')
 
     prev_c = tf.tile(c_0, [tf.shape(signal)[0], 1])
     prev_h = tf.tile(h_0, [tf.shape(signal)[0], 1])
@@ -97,9 +129,10 @@ def lstm(signal, hidden_n, input_n, forget_bias=1.0, name='lstm'):
         return (tf.add(t, 1), next_c, next_h, nc, nh)
 
     r = tf.while_loop(while_cond, body, loop_var,
-                       shape_invariants=[i.get_shape(),
-                       prev_c.get_shape(), prev_h.get_shape(),
-                       tf.TensorShape([None, None, 28]), tf.TensorShape([None, None, 28])])
+                      shape_invariants=[i.get_shape(),
+                        prev_c.get_shape(), prev_h.get_shape(),
+                        tf.TensorShape([None, None, input_n]),
+                        tf.TensorShape([None, None, input_n])])
 
     return r[-1]
 
