@@ -10,7 +10,7 @@ from ops import (lstm, reshape, loss_function, accuracy, fully_connected, augmen
 
 class MnistTrainer(object):
     def create_model(self):
-        input_n = 28
+        input_n = 26
 
         self.x = tf.placeholder(dtype=tf.float32, shape=[None, 784])
         self.y_target = tf.placeholder(dtype=tf.float32, shape=[None, 10])
@@ -18,9 +18,9 @@ class MnistTrainer(object):
         labels = self.y_target
 
         signal = self.x
-        signal = tf.reshape(signal, [-1, input_n, input_n])
+        signal = tf.reshape(signal, [-1, 28, 28])
 
-        signal = augment(signal)
+        signal = augment(signal, input_n)
 
         signal = lstm(signal, input_n, input_n)
 

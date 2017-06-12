@@ -12,21 +12,23 @@ def bias_variable(shape, bias=0., name='bias'):
     return tf.get_variable(name, initializer=initializer)
 
 
-# TODO: make 28 a parameter
-def random_crop(signal):
+def augment(signal, input_n):
     shape = tf.shape(signal)
     mb_size = tf.to_int32(shape[0])
 
-    # heigth, width
     dims = tf.random_uniform(shape=(mb_size, 2), minval=24, maxval=28, dtype=tf.int32)
+
     lengths = tf.squeeze(tf.reduce_prod(dims, axis=1, keep_dims=True), axis=1)
     max_len = tf.reduce_max(lengths)
-    padden_len = tf.cast(tf.ceil(max_len / 28), tf.int32) * 28
+
+    padden_len = tf.cast(tf.ceil(max_len / input_n), tf.int32) * input_n
     paddings = padden_len - lengths
-    steps_n = tf.ceil(lengths / 28)
+
+    steps_n = tf.ceil(lengths / input_n)
 
     i = tf.constant(0)
-    ns_0 = tf.zeros([0, tf.to_int32(padden_len) // 28, 28])
+    ns_0 = tf.zeros([0, tf.to_int32(padden_len) // input_n, input_n])
+
     while_cond = lambda i, _s: tf.less(i, mb_size)
     loop_var = [i, ns_0]
 
@@ -40,16 +42,17 @@ def random_crop(signal):
         img = tf.slice(img, [0,0], [height, width])
         img = tf.reshape(img, [-1])
         img = tf.pad(img, [[0, pad]])
-        img = tf.reshape(img, shape=[-1, 28])
+        img = tf.reshape(img, shape=[-1, input_n])
 
         next_ns = tf.concat([ns, tf.expand_dims(img, 0)], 0)
 
         return (tf.add(i, 1), next_ns)
 
     r = tf.while_loop(while_cond, body, loop_var,
-                      shape_invariants=[i.get_shape(), tf.TensorShape([None, None, 28])])
+                      shape_invariants=[i.get_shape(), tf.TensorShape([None, None, input_n])])
 
     new_signal = r[-1]
+
     return (new_signal, steps_n)
 
 
@@ -60,28 +63,9 @@ def flatten(signal):
     return tf.reshape(signal, shape=[-1, tf.to_int32(size)])
 
 
-def pad(signal):
-    flat = flatten(signal)
-
-    length = tf.shape(flat)[-1]
-    padded_length = tf.cast(tf.ceil(length / 28), tf.int32) * 28
-    padding = padded_length - length
-
-    height = padded_length // 28
-    width = 28
-
-    padded = tf.pad(flat, [[0,0], [0, padding]])
-
-    return tf.reshape(padded, shape=[-1, tf.to_int32(height), width])
-
-
-# TODO: should return a tuple
-def augment(signal):
-    return random_crop(signal)
-
-
 def lstm(input, hidden_n, input_n, forget_bias=1.0, name='lstm'):
     (signal, steps_n) = input
+
     shape = tf.shape(signal)
     steps_n = tf.to_int32(shape[-2])
     length = input_n * steps_n
