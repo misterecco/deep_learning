@@ -65,6 +65,24 @@ def flatten(signal):
     return tf.reshape(signal, shape=[-1, tf.to_int32(size)])
 
 
+def bidirect_lstm(input, hidden_n, input_n, forget_bias=1.0, name='lstm'):
+    hidden_n //= 2
+    (signal, all_steps_n) = input
+
+    rev_signal = tf.reverse(signal, axis=[1])
+    rev_name = name + '_rev'
+
+    (signal, all_steps_n) = lstm((signal, all_steps_n),
+                                  hidden_n, input_n, forget_bias, name)
+
+    (rev_signal, all_steps_n) = lstm((rev_signal, all_steps_n),
+                                     hidden_n, input_n, forget_bias, rev_name)
+
+    rev_signal = tf.reverse(rev_signal, axis=[1])
+
+    return (tf.concat([signal, rev_signal], 2), all_steps_n)
+
+
 def lstm(input, hidden_n, input_n, forget_bias=1.0, name='lstm'):
     (signal, all_steps_n) = input
 
@@ -117,8 +135,8 @@ def lstm(input, hidden_n, input_n, forget_bias=1.0, name='lstm'):
     r = tf.while_loop(while_cond, body, loop_var,
                       shape_invariants=[i.get_shape(),
                         prev_c.get_shape(), prev_h.get_shape(),
-                        tf.TensorShape([None, None, input_n]),
-                        tf.TensorShape([None, None, input_n])])
+                        tf.TensorShape([None, None, hidden_n]),
+                        tf.TensorShape([None, None, hidden_n])])
 
     return (r[-1], all_steps_n)
 

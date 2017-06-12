@@ -10,7 +10,7 @@ import tensorflow as tf
 import numpy as np
 
 from tensorflow.examples.tutorials.mnist import input_data
-from ops import (lstm, reshape, loss_function, accuracy,
+from ops import (lstm, reshape, loss_function, accuracy, bidirect_lstm,
                  fully_connected, augment, get_last_row)
 
 
@@ -56,7 +56,7 @@ class MnistTrainer(object):
 
 
     def create_model(self):
-        layers = [28, 28, 28]
+        layers = [28, 56, 56]
 
         self.x = tf.placeholder(dtype=tf.float32, shape=[None, INPUT_SIZE * INPUT_SIZE])
         self.y_target = tf.placeholder(dtype=tf.float32, shape=[None, 10])
@@ -67,10 +67,11 @@ class MnistTrainer(object):
         signal = tf.reshape(signal, [-1, INPUT_SIZE, INPUT_SIZE])
         signal = augment(signal, layers[0])
 
-        for i, hidden_n in enumerate(layers[1:]):
+        for i in range(1, len(layers)):
+            hidden_n = layers[i]
             input_n = layers[i-1]
             name = "lstm_{}".format(i)
-            signal = lstm(signal, hidden_n, input_n, name=name)
+            signal = bidirect_lstm(signal, hidden_n, input_n, name=name)
 
         signal = get_last_row(signal, layers[-1])
         signal = fully_connected(signal, 10)
