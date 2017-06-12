@@ -21,13 +21,13 @@ def augment(signal, input_n):
     lengths = tf.squeeze(tf.reduce_prod(dims, axis=1, keep_dims=True), axis=1)
     max_len = tf.reduce_max(lengths)
 
-    padden_len = tf.cast(tf.ceil(max_len / input_n), tf.int32) * input_n
-    paddings = padden_len - lengths
+    padded_len = tf.cast(tf.ceil(max_len / input_n), tf.int32) * input_n
+    paddings = padded_len - lengths
 
     steps_n = tf.ceil(lengths / input_n)
 
     i = tf.constant(0)
-    ns_0 = tf.zeros([0, tf.to_int32(padden_len) // input_n, input_n])
+    ns_0 = tf.zeros([0, tf.to_int32(padded_len) // input_n, input_n])
 
     while_cond = lambda i, _s: tf.less(i, mb_size)
     loop_var = [i, ns_0]
@@ -36,9 +36,11 @@ def augment(signal, input_n):
         idx = tf.to_int32(i)
         img = signal[idx, :, :]
         pad = paddings[idx]
+
         d = dims[idx, :]
         height = tf.to_int32(d[0])
         width = tf.to_int32(d[1])
+
         img = tf.slice(img, [0,0], [height, width])
         img = tf.reshape(img, [-1])
         img = tf.pad(img, [[0, pad]])
@@ -64,7 +66,7 @@ def flatten(signal):
 
 
 def lstm(input, hidden_n, input_n, forget_bias=1.0, name='lstm'):
-    (signal, steps_n) = input
+    (signal, all_steps_n) = input
 
     shape = tf.shape(signal)
     steps_n = tf.to_int32(shape[-2])
@@ -118,7 +120,7 @@ def lstm(input, hidden_n, input_n, forget_bias=1.0, name='lstm'):
                         tf.TensorShape([None, None, input_n]),
                         tf.TensorShape([None, None, input_n])])
 
-    return r[-1]
+    return (r[-1], all_steps_n)
 
 
 def fully_connected(signal, out_size, name='fc'):
@@ -141,10 +143,31 @@ def loss_function(signal, labels):
     return tf.reduce_mean(cross_entropy)
 
 
-def get_last_row(signal):
+def get_last_row(input, input_n):
+    (signal, steps_n) = input
+
     shape = tf.shape(signal)
-    signal = tf.slice(signal, [0, tf.to_int32(shape[1]-1), 0], [-1, 1, -1])
-    return tf.squeeze(signal, axis=[1])
+    mb_size = tf.to_int32(shape[0])
+
+    i = tf.constant(0)
+    ns_0 = tf.zeros([0, input_n])
+
+    while_cond = lambda i, _s: tf.less(i, mb_size)
+    loop_var = [i, ns_0]
+
+    def body(i, ns):
+        idx = tf.to_int32(i)
+        l = tf.to_int32(steps_n[idx])
+
+        last_row = tf.expand_dims(signal[idx, l-1, :], 0)
+        next_ns = tf.concat([ns, last_row], 0)
+
+        return (tf.add(i, 1), next_ns)
+
+    r = tf.while_loop(while_cond, body, loop_var,
+                      shape_invariants=[i.get_shape(), tf.TensorShape([None, input_n])])
+
+    return r[-1]
 
 
 def accuracy(signal, labels):

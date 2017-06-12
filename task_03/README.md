@@ -10,3 +10,6 @@ Keep track of it using a validation set,
 save model at each iteration over
 training data and pick the earliest, best,
 validation performance.
+
+
+bez wybierania właściwego wiersza - 50k (64) - >95.6%
