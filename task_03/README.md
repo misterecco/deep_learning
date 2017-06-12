@@ -13,3 +13,4 @@ validation performance.
 
 
 bez wybierania właściwego wiersza - 50k (64) - >95.6%
+wybieranie właściwego, dwie warstwy - 30k (64) - 97% (loss 0.016-0.017)

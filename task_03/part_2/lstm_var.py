@@ -7,25 +7,28 @@ import math
 from ops import (lstm, reshape, loss_function, accuracy, fully_connected, augment,
                  get_last_row)
 
+INPUT_SIZE = 28
+
 
 class MnistTrainer(object):
     def create_model(self):
-        input_n = 26
+        layers = [28, 28, 28]
 
-        self.x = tf.placeholder(dtype=tf.float32, shape=[None, 784])
+        self.x = tf.placeholder(dtype=tf.float32, shape=[None, INPUT_SIZE * INPUT_SIZE])
         self.y_target = tf.placeholder(dtype=tf.float32, shape=[None, 10])
 
         labels = self.y_target
-
         signal = self.x
-        signal = tf.reshape(signal, [-1, 28, 28])
 
-        signal = augment(signal, input_n)
+        signal = tf.reshape(signal, [-1, INPUT_SIZE, INPUT_SIZE])
+        signal = augment(signal, layers[0])
 
-        signal = lstm(signal, input_n, input_n)
+        for i, hidden_n in enumerate(layers[1:]):
+            input_n = layers[i-1]
+            name = "lstm_{}".format(i)
+            signal = lstm(signal, hidden_n, input_n, name=name)
 
-        signal = get_last_row(signal, input_n)
-
+        signal = get_last_row(signal, layers[-1])
         signal = fully_connected(signal, 10)
 
         self.loss = loss_function(signal, labels)
