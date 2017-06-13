@@ -60,7 +60,6 @@ def lstm(signal, steps_n, hidden_n, input_n, forget_bias=1.0, name='lstm'):
     return h[steps_n-1]
 
 
-
 def fully_connected(signal, out_size, name='fc'):
     in_size = signal.get_shape().as_list()[-1]
     stddev = 2 / in_size
@@ -81,6 +80,6 @@ def loss_function(signal, labels):
     return tf.reduce_mean(cross_entropy)
 
 
-# TODO: refactor it to make it look nicer
 def accuracy(signal, labels):
-    return tf.reduce_mean(tf.cast(tf.equal(tf.argmax(labels, axis=1), tf.argmax(signal, axis=1)), tf.float32))
+    bool_tensor = tf.equal(tf.argmax(labels, axis=1), tf.argmax(signal, axis=1))
+    return tf.reduce_mean(tf.cast(bool_tensor, tf.float32))

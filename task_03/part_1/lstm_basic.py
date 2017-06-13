@@ -1,8 +1,9 @@
+import datetime
+
 import tensorflow as tf
 import numpy as np
-from tensorflow.examples.tutorials.mnist import input_data
-import os
 
+from tensorflow.examples.tutorials.mnist import input_data
 from ops import rnn, lstm, reshape, loss_function, accuracy, fully_connected
 
 
@@ -34,9 +35,22 @@ class MnistTrainer(object):
         return results[:2]
 
 
+    def print_start(self):
+        date_string = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H:%M")
+        print(date_string + " start training")
+
+
+    def run_test(self):
+        date_string = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H:%M")
+        print(date_string + ' test results', self.sess.run([self.loss, self.accuracy],
+                                            feed_dict={self.x: self.mnist.test.images,
+                                                       self.y_target: self.mnist.test.labels}))
+
+
     def train(self):
         self.create_model()
-        mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
+        self.mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
+        self.print_start()
 
         with tf.Session() as self.sess:
             tf.global_variables_initializer().run()
@@ -46,7 +60,7 @@ class MnistTrainer(object):
             losses = []
             try:
                 for batch_idx in range(batches_n + 1):
-                    batch_xs, batch_ys = mnist.train.next_batch(mb_size)
+                    batch_xs, batch_ys = self.mnist.train.next_batch(mb_size)
 
                     loss, accuracy = self.train_on_batch(batch_xs, batch_ys)
 
@@ -58,17 +72,14 @@ class MnistTrainer(object):
                             batch_idx, np.mean(losses[-200:], axis=0)))
 
                     if batch_idx % 1000 == 0:
-                        print('Test results', self.sess.run([self.loss, self.accuracy],
-                                                            feed_dict={self.x: mnist.test.images,
-                                                                       self.y_target: mnist.test.labels}))
+                        self.run_test()
 
 
             except KeyboardInterrupt:
                 print('Stopping training!')
                 pass
 
-            print('Test results', self.sess.run([self.loss, self.accuracy],
-                   feed_dict={self.x: mnist.test.images, self.y_target: mnist.test.labels}))
+            self.run_test()
 
 
 if __name__ == '__main__':
