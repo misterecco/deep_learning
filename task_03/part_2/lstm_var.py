@@ -56,7 +56,7 @@ class MnistTrainer(object):
 
 
     def create_model(self):
-        layers = [28, 56, 56]
+        layers = [26, 52, 52]
 
         self.x = tf.placeholder(dtype=tf.float32, shape=[None, INPUT_SIZE * INPUT_SIZE])
         self.y_target = tf.placeholder(dtype=tf.float32, shape=[None, 10])
@@ -141,7 +141,7 @@ class MnistTrainer(object):
 
             self.load_checkpoint()
 
-            batches_n = 50000
+            batches_n = 30000
 
             if '--skip-training' in sys.argv:
                 batches_n = 0
